@@ -37,7 +37,7 @@ A ternary logic is used:
 - 1 = true
 - ? = indeterminate
 
-A number of gates is predefined, such as And, Or, Nand, Not, Xor and more.\
+A number of gates is predefined, such as And, Or, Nand, Nor, Xor, Not and more.\
 Some tools are included such as:
 - for the preparation of truth-tables
 - for running a circuit with a sequence of inputs
