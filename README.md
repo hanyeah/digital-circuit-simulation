@@ -42,7 +42,7 @@ And, Or, Nand, Nor and Xor accept an arbitrary number of inputs.\
 Some tools are included such as:
 - for the preparation of truth-tables
 - for running a circuit with a sequence of inputs
-- for repost on how signals propagate through a circuit.
+- for reports on how signals propagate through a circuit.
 
 Use DrRacket to make documentation from file manual.scrbl.\
 The source-code is in file make-circuit.rkt.\
