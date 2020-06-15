@@ -26,9 +26,9 @@ For example:
 
 ```
 (D-latch 0 1) -> 0 ; reset
-(D-latch ? 0) -> 0 ; get state
+(D-latch ? 0) -> 0 ; preserve state
 (D-latch 1 1) -> 1 ; set
-(D-latch ? 0) -> 1 ; get state
+(D-latch ? 0) -> 1 ; preserve state
 ```
 
 A ternary logic is used:
@@ -44,7 +44,8 @@ Some tools are included such as:
 Use DrRacket to make documentation from file manual.scrbl.\
 The source-code is in file make-circuit.rkt.\
 The simulator has some drawbacks.\
-For example, it does not account for delays in gates and subcircuits.\
+For example, it does not account for delays in gates and subcircuits\
+and has no tools for edge triggered circuits.\
 More information in the documentation.
 
 Have fun!
