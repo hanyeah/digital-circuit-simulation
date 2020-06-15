@@ -19,14 +19,16 @@ For example: a very straight forward coding of a D-latch simulator:
 (define D-latch (make-D-latch))
 ```
 
+make-D-latch is a thunk that returns a distinct D-gate every time it is called.\
+Every instance has its own internal state.\
 D-latch is a procedure of two arguments *in* and *clock* and one output *state*.\
 For example:
 
 ```
-(D-latch 1 0) -> 0 ; reset the D-latch
-(D-latch 0 ?) -> 0 ; get the current state
-(D-latch 1 1) -> 1 ; set the D-latch
-(D-latch 0 ?) -> 1 ; get the current state
+(D-latch 0 1) -> 0 ; reset
+(D-latch ? 0) -> 0 ; get state
+(D-latch 1 1) -> 1 ; set
+(D-latch ? 0) -> 1 ; get state
 ```
 
 Use DrRacket to make documentation from file manual.scrbl.\
