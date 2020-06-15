@@ -19,8 +19,9 @@ For example: a very straight forward coding of a D-latch simulator:
 (define D-latch (make-D-latch))
 ```
 
-make-D-latch is a thunk that returns a distinct D-gate every time it is called.\
-Every instance has its own internal state.\
+Syntax make-circuit-maker produces a thunk, in the example make-D-latch.\
+make-D-latch returns a distinct D-gate every time it is called.\
+Every instance is a procedure with its own internal state.\
 D-latch is a procedure of two arguments *in* and *clock* and one output *state*.\
 For example:
 
