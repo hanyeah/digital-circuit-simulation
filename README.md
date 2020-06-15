@@ -4,8 +4,10 @@ Written for use in DrRacket.\
 For example: a very straight forward coding of a D-latch simulator:
 
 ```
+---------------------------------------------
 #lang racket
 (require "make-circuit.rkt")
+
 (define make-D-latch
  (make-circuit-maker
   D-latch     ; name
@@ -16,7 +18,9 @@ For example: a very straight forward coding of a D-latch simulator:
   (set           (Nand reset clock))
   (state         (Nand reset state-inverse))
   (state-inverse (Nand set   state))))
+  
 (define D-latch (make-D-latch))
+---------------------------------------------
 ```
 
 Syntax make-circuit-maker produces a thunk, in the example make-D-latch.\
