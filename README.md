@@ -5,7 +5,7 @@ For example: a very straight forward coding of a D-latch simulator:
 
 ```
 #lang racket
-(require make-circuit.rkt)
+(require "make-circuit.rkt")
 (define make-D-latch
  (make-circuit-maker
   D-latch     ; name
@@ -30,6 +30,16 @@ For example:
 (D-latch 1 1) -> 1 ; set
 (D-latch ? 0) -> 1 ; get state
 ```
+
+A ternary logic is used:
+- 0 = false
+- 1 = true
+- ? = indeterminate
+
+A number of gates is predefined, such as And, Or, Nand, Not, Xor and more.\
+Some tools are included such as:
+- for the preparation of truth-tables
+- for running a circuit with a sequence of inputs
 
 Use DrRacket to make documentation from file manual.scrbl.\
 The source-code is in file make-circuit.rkt.\
