@@ -46,6 +46,7 @@ Some tools are included such as:
 
 Use DrRacket to make documentation from file manual.scrbl.\
 The source-code is in file make-circuit.rkt.\
+Keep the files in the same directory.\
 The simulator has some drawbacks.\
 For example, it does not account for delays in gates and subcircuits\
 and has no tools for edge triggered circuits.\
