@@ -43,7 +43,7 @@ A ternary logic is used:
 
 A number of gates is predefined, such as And, Or, Nand, Nor, Xor, Not and more.\
 And, Or, Nand, Nor and Xor accept an arbitrary number of inputs.\
-Some tools are included such as:
+Some more tools are included such as:
 - for the preparation of truth-tables
 - for running a circuit with a sequence of inputs
 - for reports on how signals propagate through a circuit.
