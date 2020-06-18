@@ -107,24 +107,27 @@
 @(define-syntax (make-truth-table stx)
  (syntax-case stx ()
   ((_ (in ...) expr)
- #'(let
-    ((p (open-output-string))
-     (table (X-sort (truth-table (in ...) expr)))
-     (alignments (list (make-string (string-length (format "~s" 'in)) #\space) ...))
-     (n (length '(in ...))))
-    (fprintf p "~s " 'in) ...
-    (fprintf p "-> ~s" 'expr)
-    (define header (get-output-string p))
-    (define line (make-string (string-length header) #\—))
-    (file-position p 0)
-    (fprintf p "~a~n~a~n~a~n" line header line)
-    (for ((line (in-list table)))
-     (let ((last (last line)))
-      (for ((x (in-list line)) (align (in-list alignments)))
-       (fprintf p "~s~a" x align))
-      (fprintf p "-> ~s~n" (if (= (length last) 1) (car last) last))))
-    (fprintf p "~a" line)
-    (get-output-string p)))))
+ #'(let*
+    ((table (X-sort (truth-table (in ...) expr)))
+     (table-reverse (map reverse table))
+     (table-ins (map reverse (map cdr table-reverse)))
+     (table-outs (map (λ (x) (if (= (length x) 1) (car x) x)) (map car table-reverse)))
+     (n (length '(in ...)))
+     (m (length table)))
+    (define (t x) (tt (format "~a" x)))
+    (tabular
+     (cons
+      (list (t 'in) ... "→" (t 'expr))
+      (for/list ((table-in (in-list table-ins)) (table-out (in-list table-outs)))
+       (append
+        (for/list ((x (in-list table-in))) (t x))
+        (list "→" (t table-out)))))
+     #:sep (hspace 1)
+     #:row-properties
+     (append (cons '(top-border bottom-border)
+                   (append (make-list (sub1 m) '()) (list 'bottom-border))))
+     #:column-properties (make-list (+ n 2) 'left))))))
+
 
 @(define (X-sort table) (sort table X-inputs-<?))
 
