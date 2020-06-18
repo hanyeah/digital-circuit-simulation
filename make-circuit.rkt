@@ -39,14 +39,7 @@
       (procedure-rename
        (let ((saved-gate-output ?) ... ... (active (make-parameter #f)))
         (λ (input ... #:report (report #f) #:unstable-error (unstable-error #t))
-         (when (active)
-           (error 'name
-            (string-append
-             "~n  direct or indirect recursive call,~n"
-             "  which is not allowed and impossible in real life,~n"
-             "  although a circuit can contain circular~n"
-             "  dependencies between its internal signals.~n"
-             "  But that's another story.")))
+         (when (active) (error 'name "direct or indirect recursive call"))
          (parameterize ((active #t))
           (unless (trit? input)
            (error 'name "input ~s must be a trit, given: ~s" 'input input))...
@@ -72,7 +65,9 @@
             (else
              (let-values
               (((new-gate-output ...)
-                (let ((vals (call-with-values (λ () gate-expr) list)))
+                (let*
+                 ((vals (call-with-values (λ () gate-expr) list))
+                  (vals (if (equal? vals (list (void))) '() vals)))
                  (unless (= (length vals) gate-arity)
                   (error 'name "incorrect nr of values for wires ~s" '(gate-output ...)))
                  (unless (andmap trit? vals)
@@ -189,7 +184,7 @@
  #'(for*/list ((in (in-list '(0 1))) ...)
     (list in ... (call-with-values (λ () expr) list))))))
 
-(define (run-circuit circuit . list-of-list-of-inputs)
+(define (run-circuit circuit list-of-list-of-inputs)
  (for/list ((args (in-list list-of-list-of-inputs)))
   (call-with-values (λ () (apply circuit args)) list)))
 
