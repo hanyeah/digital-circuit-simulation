@@ -106,9 +106,29 @@
 
 @(define-syntax (make-truth-table stx)
  (syntax-case stx ()
-  ((_ (in ...) expr)
+  ((_ (in ...) expr no?)
  #'(let*
-    ((table (X-sort (truth-table (in ...) expr)))
+    ((table (X-sort (if no? (truth-table (in ...) expr) (truth-table (in ...) expr #:no-?))))
+     (table-reverse (map reverse table))
+     (table-ins (map reverse (map cdr table-reverse)))
+     (table-outs (map (λ (x) (if (= (length x) 1) (car x) x)) (map car table-reverse)))
+     (n (length '(in ...)))
+     (m (length table)))
+    (define (t x) (tt (format "~a" x)))
+    (tabular
+     (cons
+      (list (t 'in) ... "→" (t 'expr))
+      (for/list ((table-in (in-list table-ins)) (table-out (in-list table-outs)))
+       (append
+        (for/list ((x (in-list table-in))) (t x))
+        (list "→" (t table-out)))))
+     #:sep (hspace 1)
+     #:row-properties
+     (append (cons '(top-border bottom-border)
+                   (append (make-list (sub1 m) '()) (list 'bottom-border)))))))
+  ((_ (in ...) expr #:no-?)
+ #'(let*
+    ((table (X-sort (truth-table (in ...) expr #:no-?)))
      (table-reverse (map reverse table))
      (table-ins (map reverse (map cdr table-reverse)))
      (table-outs (map (λ (x) (if (= (length x) 1) (car x) x)) (map car table-reverse)))
@@ -127,7 +147,6 @@
      (append (cons '(top-border bottom-border)
                    (append (make-list (sub1 m) '()) (list 'bottom-border))))
      #:column-properties (make-list (+ n 2) 'left))))))
-
 
 @(define (X-sort table) (sort table X-inputs-<?))
 

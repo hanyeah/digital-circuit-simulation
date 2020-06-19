@@ -2,7 +2,7 @@
  
 (require (for-syntax racket racket/syntax))
 (provide make-circuit-maker trit? bit? ? F T trits trit-seq bits bit-seq)
-(provide Not And Or Xor Nand Nor Implies If True? False? Indeterminate?)
+(provide Not And Or Xor Eq Nand Nor Implies If True? False? Indeterminate?)
 (provide make-inputs truth-table run-circuit)
 
 (define ? '?)
@@ -65,9 +65,8 @@
             (else
              (let-values
               (((new-gate-output ...)
-                (let*
-                 ((vals (call-with-values (λ () gate-expr) list))
-                  (vals (if (equal? vals (list (void))) '() vals)))
+                (let
+                 ((vals (call-with-values (λ () gate-expr) list)))
                  (unless (= (length vals) gate-arity)
                   (error 'name "incorrect nr of values for wires ~s" '(gate-output ...)))
                  (unless (andmap trit? vals)
@@ -160,6 +159,16 @@
   ((member ? p) ?)
   ((odd? (count positive? p)) 1)
   (else 0)))
+
+(define (Eq . x)
+ (let loop ((x x) (?? 1) (0? #f) (1? #f))
+  (cond
+   ((null? x) ??)
+   (else
+    (case (car x)
+     ((0) (if 1? 0 (loop (cdr x) ?? #t 1?)))
+     ((1) (if 0? 0 (loop (cdr x) ?? 0? #t)))
+     ((?) (loop (cdr x) ? 0? 1?)))))))
 
 (define (Implies a b) (Or (Not a) b))
 

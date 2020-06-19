@@ -39,11 +39,12 @@ Let n be the number of all wires in a circuit.
 The circuit can adopt no more than 3@↑{n} distinct states, usually much less.
 
 @elemtag{D-latch}
-Let's show a simple flip-flop: a D-latch.@(lb)
-It has two inputs called ‘@tt{in}’ and ‘@tt{clock}’.@(lb)
-It has one output, called ‘@tt{state}’.@(lb)
-The @tt{state} is preserved as internal state:@(lb)
-after changing the inputs the new @tt{state} can depend on the previous @tt{state}.@(lb)
+Let's show a simple flip-flop: a D-latch.
+It has two inputs called ‘@tt{in}’ and ‘@tt{clock}’.
+It has one output, called ‘@tt{state}’.
+The @tt{state} is preserved as internal state.
+After changing the inputs the new @tt{state}
+can depend on the previous @tt{state}.
 @nb{The following} transition table applies:
 @inset{@Tabular[
 (((tt "in") (tt "clock") (list "old" (hspace 1) (tt "state")) (list "new" (hspace 1) (tt "state"))
@@ -68,14 +69,14 @@ A @hyperlink["https://creativecommons.org/licenses/by-sa/3.0/"]{hyperlink} suffi
 @ignore{@inset{@image{D-latch.gif}}}
 Name the wires as follows: 
 @inset{@Tabular[
-((@tt{in} "=" "D")
- (@tt{clock} "=" "E")
- (@tt{state} "=" "Q")
- (@tt{state-inverse} "=" (list "output of the lower right " @nbr[Nand] "-gate in the diagram."))
+((@tt{in}            "=" "D")
+ (@tt{clock}         "=" "E")
+ (@tt{state}         "=" "Q")
+ (@tt{state-inverse} "=" (list "output of the lower right "  @nbr[Nand] "-gate in the diagram."))
  (@tt{reset}         "=" (list "wire between the upper two " @nbr[Nand] "-gates in the diagram"))
  (@tt{set}           "=" (list "wire between the lower two " @nbr[Nand] "-gates in the diagram")))
  #:sep (hspace 1)]}
-With procedure @nbr[make-circuit-maker] the diagram
+With macro @nbr[make-circuit-maker] the diagram
 can be translated to a procedure by straight forwardly following the diagram:
 
 @Interaction*[
@@ -133,7 +134,8 @@ Let's check the @tt{simplified-@nb{D-latch}}:
  (unless (eq? (simplified-D-latch state 1) state)
   (error "test fails"))
  (code:comment "Apply the D-latch to the combination of in and clock and check.")
- (unless (= (simplified-D-latch in clock) (If clock in state))
+ (unless
+  (= (simplified-D-latch in clock) (case clock ((0) state) ((1) in)))
   (error "test fails")))
 (printf "Hurray, test passed.~n")]
 @(reset-Interaction*)
@@ -159,13 +161,12 @@ The @nbr[output]s must be distinct identifiers.@(lb)
 All @nbr[gate-output]s must be distinct identifiers.@(lb)
 The set of the @nbr[input]-@nbr[id]s and that of the @nbr[gate-output]-@nbr[id]s must be disjunct.
 @(lb)
-Every @nbr[output] also must appear as an @nbr[input] or a @nbr[gate-output].@(lb)
+The @nbr[output]s must be a subset of the conjunction of @nbr[input]s and @nbr[gate-output]s.@(lb)
 Within each @nbr[gate-expr] all identifiers of the @nbr[input]s
 and @nbr[gate-output]s are bound.@(lb)
 They can be used as the inputs of the @nbr[gate].@(lb)
 Each @nbr[gate-expr] must return as many values as its @nbr[gate] has
-@nbr[gate-output]s,@(lb)
-but @tt{#<void>} is interpreted as no values at all.@(lb)
+@nbr[gate-output]s.@(lb)
 A @nbr[gate] of the form @nbr[(id gate-expr)] is treated as @nbr[((id) gate-expr)].
 
 The @nbr[name] is used for the @nbr[object-name] and the printed form of the circuit-maker
@@ -210,7 +211,8 @@ for example as a probe on some or all wires:
    (()
     (begin
      (printf "Step ~s: a=~s, b=~s, c=~s.~n" n a b c)
-     (set! n (add1 n)))))))
+     (set! n (add1 n))
+     (values))))))
 (define probed-circuit (make-probed-circuit))
 (probed-circuit)]
 
@@ -219,22 +221,26 @@ for example as a probe on some or all wires:
                   (input trit?) ...) (values trit? ...)]{
 
 @element["RktSymDef RktSym"]{circuit} is supposed to be a circuit-procedure
-as returned by a circuit-maker made by procedure @nbr[make-circuit-maker].
+as returned by a circuit-maker made by macro @nbr[make-circuit-maker].
 The number of @nbr[input]s must match the number of @nbr[input]s given to @nbr[make-circuit-maker].
 The number of returned values is the same as the number of @nbr[output]s
 given to @nbr[make-circuit-maker].
 The combination of all @nbr[gate-output]s is preserved as the internal state of the circuit.
+Initially, id est before the circuit-procedure is called for the first time,
+all @nbr[gate-output]s are @nbr[?], id est indeterminate.
 The circuit-procedure makes steps as follows:
 all @nbr[gate-expr]s are evaluated.
 @nb{Each @nbr[gate-expr]} must yield as many values
 as its @nbr[gate] has @nbr[gate-output]s.
 @nb{The values} must be @nbrl[trit?]{trits} of course.
-@nb{A @nbr[gate-expr]} returning @tt{#<void>} is treated as returning no value at all.
 After all @nbr[gate-expr]s have been evaluated,
 the returned values are assigned to the @nbr[gate-output]s without bothering about the delays that
 gates and subcircuits have in real life.
 More steps are made until all @nbr[gate-output]s are stable.
 @nb{A @nbr[gate-output]} is stable if it no longer changes value.
+After stability is obtained, the @nbr[output]s are returned as a multiple value.
+The internal state is preserved for the next call to the circuit-procedure.
+
 If a loop is detected by repetition of a previous unstable internal state,
 the simulation is terminated, for otherwise the circuit-procedure would loop forever.
 Because a circuit-procedure has a finite number of
@@ -243,17 +249,6 @@ loops always are detected.
 @nb{Each time} a circuit-procedure is called, its memory is cleared,
 for otherwise it may halt prematurely when called repeatedly.
 
-@ignore{Delays in gates are not accounted for.
-All gates and subcircuits produce their new outputs simultaneously.
-Section 3.3.4 of
-@hyperlink["https://mitpress.mit.edu/sites/default/files/sicp/full-text/book/book.html"]{
-Structure and Interpretation of Computer Programs by Harold Abelson and Gerald Jay Sussman with
-Julie Sussman} shows an approach that accounts for delays in gates.}
-
-Procedure @nbr[make-circuit-maker] initializes all @nbr[gate-output]s of the produced
-circuit with the indeterminate ternary value @nbr[?].
-Thereafter the internal state, id est the collection of the values of all @nbr[gate-output]s,
-can change, but is preserved between subsequent calls to the circuit-procedure.
 The @nbr[output]s of a circuit can depend on the internal state.
 This is the case in the above @nb{@elemref["D-latch"]{D-latch}.}
 For such a circuit distinct instances of the circuit-procedure are required
@@ -274,12 +269,11 @@ It is allowed to ask for a report of a circuit-procedure called by a @nbr[gate-e
 a circuit-procedure for which a report is asked for as well.
 This is discouraged, though, because it may result in a confusing report.
 
-If the optional keyword argument @nbr[unstable-error] is not @nbr[#f]
-an exception is raised when unstability is detected,
-otherwise the simulation is terminated and
+When instability is detected and @nbr[unstable-error] is not @nbr[#f] an exception is raised.
+@nb{If @nbr[unstable-error]} is @nbr[#f], the simulation is terminated,
 the possibly partially or fully undetermined @nbr[output]s are returned
 and the possibly partially or fully undetermined internal state is preserved.
-In the following example unstability is detected and an exception is raised:
+In the following example instability is detected and an exception is raised:
 
 @Interaction[
 (define unstable-circuit
@@ -343,7 +337,7 @@ as though a distinct instance everywhere where it appears.
 @nbr[(Not 0)] yields @nbr[1].@(lb)
 @nbr[(Not 1)] yields @nbr[0].@(lb)
 @nbr[(Not ?)] yields @nbr[?].}
-@(inset (make-truth-table (a) (Not a)))}
+@(inset (make-truth-table (a) (Not a) #t))}
 
 @defproc[(And (input trit?) ...) trit?]{
 Yields @nbr[1] when called without @nbr[input]s.@(lb)
@@ -351,14 +345,17 @@ Yields @nbr[0] when at least one @nbr[input] is @nbr[0].@(lb)
 Yields @nbr[1] when at all @nbr[input]s are @nbr[1].@(lb)
 Else yields @nbr[?].
 
-@(inset (make-truth-table (a b) (And a b)))
+@(inset (make-truth-table (a b) (And a b) #t))
 
 @nbr[And] is associative and commutative:
 
 @Interaction[
+(for*/and ((a trit-seq) (b trit-seq))
+ (eq? (And a b) (And b a)))
 (for*/and ((a trit-seq) (b trit-seq) (c trit-seq))
- (and (eq? (And a b) (And b a))
-      (eq? (And (And a b) c) (And a (And b c)))))]}
+ (define And-a-b-c (And a b c))
+ (and (eq? (And (And a b) c) And-a-b-c)
+      (eq? (And a (And b c)) And-a-b-c)))]}
 
 @defproc[(Nand (input trit?) ...) trit?]{
 Yields @nbr[0] when called without @nbr[input]s.@(lb)
@@ -367,7 +364,7 @@ Yields @nbr[0] when at all @nbr[input]s are @nbr[1].@(lb)
 Else yields @nbr[?].@(lb)
 In other words: same as @nbr[(Not (And input ...))]
 
-@(inset (make-truth-table (a b) (Nand a b)))
+@(inset (make-truth-table (a b) (Nand a b) #t))
 
 Given one argument, @nbr[Nand] does the same as @nbr[Not]:
 
@@ -387,12 +384,15 @@ Yields @nbr[0] when called without @nbr[input]s.@(lb)
 Yields @nbr[1] when at least one @nbr[input] is @nbr[1].@(lb)
 Yields @nbr[0] when all @nbr[input]s are @nbr[0].@(lb)
 Else yields @nbr[?].
-@(inset (make-truth-table (a b) (Or a b)))
+@(inset (make-truth-table (a b) (Or a b) #t))
 @nbr[Or] is associative and commutative:
 @Interaction[
+(for*/and ((a trit-seq) (b trit-seq))
+ (eq? (Or a b) (Or b a)))
 (for*/and ((a trit-seq) (b trit-seq) (c trit-seq))
- (and (eq? (Or a b) (Or b a))
-      (eq? (Or (Or a b) c) (Or a (Or b c)))))]
+ (define Or-a-b-c (Or a b c))
+ (and (eq? (Or (Or a b) c) Or-a-b-c)
+      (eq? (Or a (Or b c)) Or-a-b-c)))]
 
 @nbr[And] and @nbr[Or] are distributative for each other.@(lb)
 Because both @nbr[And] and @nbr[Or] are commutative,@(lb)
@@ -412,7 +412,7 @@ Yields @nbr[1] when all @nbr[input]s are @nbr[0].@(lb)
 Else yields @nbr[?].@(lb)
 In other words: same as @nbr[(Not (Or input ...))]
 
-@(inset (make-truth-table (a b) (Nor a b)))
+@(inset (make-truth-table (a b) (Nor a b) #t))
 
 @nbr[Nor] is commutative but not associative:
 
@@ -430,18 +430,33 @@ and all other @nbr[input]s, if any, are @nbr[0].@(lb)
 Yields @nbr[0] when an even number of @nbr[input]s is @nbr[1]
 and all other @nbr[input]s, if any, are @nbr[0].
 
-@(inset (make-truth-table (a b) (Xor a b)))
+@(inset (make-truth-table (a b) (Xor a b) #t))
 
 @nbr[Xor] is commutative and associative:
 @Interaction[
+(for*/and ((a trit-seq) (b trit-seq))
+ (eq? (Xor a b) (Xor b a)))
 (for*/and ((a trit-seq) (b trit-seq) (c trit-seq))
- (and (eq? (Xor a b) (Xor b a))
-      (eq? (Xor (Xor a b) c) (Xor a (Xor b c)))))]}
+ (define Xor-a-b-c (Xor a b c))
+ (and (eq? (Xor (Xor a b) c) Xor-a-b-c)
+      (eq? (Xor a (Xor b c)) Xor-a-b-c)))]}
+
+@defproc[(Eq (p trit?) ...) trit?]{
+Yields @nbr[1] when called without arguments.@(lb)
+Yields @nbr[1] if all arguments are @nbr[0] or all are @nbr[1].@(lb)
+Yields @nbr[0] if one argument is @nbr[0] and another one is @nbr[1].@(lb)
+Else yields @nbr[?]. Same as:
+@inset{@nbr[(Or (And p ...) (Nor p ...))]}
+@Interaction[
+(for*/and ((a trit-seq) (b trit-seq) (c trit-seq) (d trit-seq))
+ (eq? (Eq a b c d) (Or (And a b c d) (Nor a b c d))))]
+@(inset (make-truth-table (x y) (Eq x y) #t))
+@(inset (make-truth-table (x y z) (Eq x y z) #f))}
 
 @defproc[(Implies (premise trit?)(implication trit?)) trit?]{
 Same as: @nbr[(Or (Not premise) implication)].
 
-@(inset (make-truth-table (premise implication) (Implies premise implication)))}
+@(inset (make-truth-table (premise implication) (Implies premise implication) #t))}
 
 @defproc[(If (test trit?) (then trit?) (else trit?)) trit?]{
 If @nbr[then] and @nbr[else] are the same, their value is returned.@(lb)
@@ -463,9 +478,8 @@ Let's check this:
    (Or (And then else) (And test then) (And (Not test) else)))
   (eq? result
    (Nand (Nand then else) (Nand test then) (Nand (Not test) else)))))]
-
-@(inset (make-truth-table (test then else) (If test then else)))
-Notice that an indeterminate @nbr[test] is ignored when @nbr[then] and @nbr[else] are the same:
+@(inset (make-truth-table (test then else) (If test then else) #f))
+An indeterminate @nbr[test] is ignored when @nbr[then] and @nbr[else] are the same:
 @Interaction[
 (If ? 0 0)
 (If ? 1 1)]}
@@ -500,8 +514,8 @@ However, the procedure can produce other types of tables too.
 The following example checks that @nbr[(Nand a b)] always equals @nbr[(Or (Not a) (Not b))]:
 @Interaction[
 (define (ok? x) (eq? (caaddr x) #t))
-(code:comment "Use ok? to be sure we don't inadvertently access")
-(code:comment "the wrong element of a line of the table,")
+(code:comment "Use ok? in stead of eq? to make sure we don't inadvertently")
+(code:comment "access the wrong element of a line of the table,")
 (code:comment "which would be accepted as true too.")
 (andmap ok? 
  (truth-table (a b)
@@ -544,7 +558,8 @@ defined in the @secref{Introduction}.
   (state-inverse (Nand   SET state))))])
 @Interaction*[
 (define D-latch (make-D-latch))
-(run-circuit D-latch '((0 1) (? 0) (1 1) (? 0) (? 1) (0 1) (? 0) (1 ?)))]
+(run-circuit D-latch
+ '((0 1) (? 0) (1 1) (1 0) (0 0) (? 1) (0 1) (? 0) (1 ?)))]
 Procedure @nbr[run-circuit] is especially provided for circuits,@(lb)
 but can be used for arbitrary procedures, for example:
 @Interaction*[
