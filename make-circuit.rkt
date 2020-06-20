@@ -3,7 +3,23 @@
 (require (for-syntax racket racket/syntax))
 (provide make-circuit-maker trit? bit? ? F T trits trit-seq bits bit-seq)
 (provide Not And Or Xor Eq Nand Nor Implies If True? False? Indeterminate?)
-(provide make-inputs truth-table run-circuit)
+(provide make-inputs truth-table run-circuit circuit? circuit-maker?)
+
+(define (circuit-maker-printer circuit-maker port mode)
+ (fprintf port "#<circuit-maker:~s>" (circuit-maker-name circuit-maker)))
+
+(struct circuit-maker (name proc)
+ #:property prop:procedure 1
+ #:property prop:custom-write circuit-maker-printer
+ #:property prop:object-name (λ (x) (string->symbol (format "make:~a" (circuit-maker-name x)))))
+
+(define (circuit-printer circuit port mode)
+ (fprintf port "#<circuit:~s>" (circuit-name circuit)))
+
+(struct circuit (name proc)
+ #:property prop:procedure 1
+ #:property prop:custom-write circuit-printer
+ #:property prop:object-name 0)
 
 (define ? '?)
 (define F 0)
@@ -34,9 +50,9 @@
      ((gate-arity ...) (map length (syntax->datum #'((gate-output ...) ...)))))
     (check-make-circuit-maker-form
    #'(name (input ...) (output ...) ((gate-output ...) gate-expr) ...))
-  #'(procedure-rename
+  #'(circuit-maker 'name
      (lambda ()
-      (procedure-rename
+      (circuit 'name
        (let ((saved-gate-output ?) ... ... (active (make-parameter #f)))
         (λ (input ... #:report (report #f) #:unstable-error (unstable-error #t))
          (when (active) (error 'name "direct or indirect recursive call"))
@@ -90,9 +106,7 @@
                 (loop
                  (add1 step)
                  (cons (list gate-output ... ...) history)
-                 new-gate-output ... ...))))))))))
-       'name))
-     (string->symbol (format "make-~s" 'name)))))))
+                 new-gate-output ... ...)))))))))))))))))
  
 (define-for-syntax (check-make-circuit-maker-form stx)
  (syntax-case stx ()
@@ -183,13 +197,13 @@
   ((_ (in ...) expr)
  #'(for*/list ((in trit-seq) ...)
     (list in ... (call-with-values (λ () expr) list))))
-  ((_ (in ...) expr #:no-?)
+  ((_ (in ...) expr #:omit-?)
  #'(for*/list ((in (in-list '(0 1))) ...)
     (list in ... (call-with-values (λ () expr) list))))
-  ((_ (in ...) #:no-? expr)
+  ((_ (in ...) #:omit-? expr)
  #'(for*/list ((in (in-list '(0 1))) ...)
     (list in ... (call-with-values (λ () expr) list))))
-  ((_  #:no-? (in ...) expr)
+  ((_  #:omit-? (in ...) expr)
  #'(for*/list ((in (in-list '(0 1))) ...)
     (list in ... (call-with-values (λ () expr) list))))))
 

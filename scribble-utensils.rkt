@@ -108,7 +108,7 @@
  (syntax-case stx ()
   ((_ (in ...) expr no?)
  #'(let*
-    ((table (X-sort (if no? (truth-table (in ...) expr) (truth-table (in ...) expr #:no-?))))
+    ((table (X-sort (if no? (truth-table (in ...) expr) (truth-table (in ...) expr #:omit-?))))
      (table-reverse (map reverse table))
      (table-ins (map reverse (map cdr table-reverse)))
      (table-outs (map (λ (x) (if (= (length x) 1) (car x) x)) (map car table-reverse)))
@@ -126,9 +126,9 @@
      #:row-properties
      (append (cons '(top-border bottom-border)
                    (append (make-list (sub1 m) '()) (list 'bottom-border)))))))
-  ((_ (in ...) expr #:no-?)
+  ((_ (in ...) expr #:omit-?)
  #'(let*
-    ((table (X-sort (truth-table (in ...) expr #:no-?)))
+    ((table (X-sort (truth-table (in ...) expr #:omit-?)))
      (table-reverse (map reverse table))
      (table-ins (map reverse (map cdr table-reverse)))
      (table-outs (map (λ (x) (if (= (length x) 1) (car x) x)) (map car table-reverse)))

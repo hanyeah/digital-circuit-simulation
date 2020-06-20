@@ -59,25 +59,12 @@ Hence, in order to set or reset the @nb{D-latch},
 set @tt{in} to @nbr[1] cq @nbr[0] and apply a @nbr[1]-pulse to the @tt{clock}.
 Leave the @tt{clock} low at @nbr[0] in order to preserve the state.
 There are several ways to construct a D-latch using elementary gates only.
-The following
-@hyperlink["https://en.wikipedia.org/wiki/Flip-flop_(electronics)"]{
-diagram copied from Wikipedia} shows an example of a D-latch consisting of four @nbr[Nand]-gates.
-@smaller{I hope copying the diagram
-is allowed. IIUC it is allowed when the license is included in the copy.
-A @hyperlink["https://creativecommons.org/licenses/by-sa/3.0/"]{hyperlink} suffices, I assume.}
-@inset{@image["D-Type_Transparent_Latch.svg"]}
-@ignore{@inset{@image{D-latch.gif}}}
-Name the wires as follows: 
-@inset{@Tabular[
-((@tt{in}            "=" "D")
- (@tt{clock}         "=" "E")
- (@tt{state}         "=" "Q")
- (@tt{state-inverse} "=" (list "output of the lower right "  @nbr[Nand] "-gate in the diagram."))
- (@tt{reset}         "=" (list "wire between the upper two " @nbr[Nand] "-gates in the diagram"))
- (@tt{set}           "=" (list "wire between the lower two " @nbr[Nand] "-gates in the diagram")))
- #:sep (hspace 1)]}
-With macro @nbr[make-circuit-maker] the circuit
-can be coded in @(Rckt) by straightforwardly following the diagram.
+The following diagram shows an example of a D-latch consisting of four @nbr[Nand]-gates.@(lb)
+@ignore{@inset{@image["D-Type_Transparent_Latch.svg"]}}
+@inset{@image["D-latch.gif" #:scale 0.3]}
+
+The circuit can be coded for macro @nbr[make-circuit-maker]@(lb)
+by straightforwardly following the diagram:
 
 @Interaction*[
 (define make-D-latch
@@ -98,8 +85,10 @@ through the two @nbr[Nand]-gates at the right in the diagram.
 (as far as not already @nbr[1])
 and the two @nbr[Nand]-gates act as a loop of two inverters for
 the signals @tt{state} and @tt{state-inverse}.
-Hence, the @tt{state} remains as it is after the @tt{clock} falls down from @nb{@nbr[1] to @nbr[0]}.
-Let's test the @nb{D-latch} for all determined combinations of @tt{in}, @tt{clock} and old @tt{state}:
+Hence, once stable the @tt{state} remains as it is after the
+@tt{clock} falls down from @nb{@nbr[1] to @nbr[0]}.
+Let's test the @nb{D-latch} for all binary combinations for
+@tt{in}, @tt{clock} and @nb{old @tt{state}:}
 
 @Interaction*[
 (for* ((in bit-seq) (clock bit-seq) (state bit-seq))
@@ -173,12 +162,11 @@ The @nbr[name] is used for the @nbr[object-name] and the printed form of the cir
 and the circuit-procedures made by the circuit-maker. Here is an empty circuit:
 
 @Interaction[
-(define make-circuit (make-circuit-maker monkey () ()))
+(define make-circuit (make-circuit-maker featherhead () ()))
 (define circuit (make-circuit))
-(object-name make-circuit)
-(object-name circuit)
-make-circuit
-circuit]
+(values
+ (object-name make-circuit) make-circuit
+ (object-name      circuit)      circuit)]
 
 A @nbr[gate-expr] can include calls to gates and other circuits,
 but it must not directly nor indirectly call the circuit-procedure it belongs to,
@@ -216,12 +204,18 @@ for example as a probe on some or all wires:
 (define probed-circuit (make-probed-circuit))
 (probed-circuit)]
 
+@defproc[#:kind "predicate" (circuit-maker? (obj any/c)) boolean?]{
+Predicate for procedures made by syntax @nbr[make-circuit-maker].}
+
+@defproc[#:kind "predicate" (circuit? (obj any/c)) boolean?]{
+Predicate for procedures made by a @nbrl[circuit-maker?]{circuit-maker}.}
+
 @defproc[(circuit (#:report report any/c #f)
                   (#:unstable-error unstable-error any/c #t)
                   (input trit?) ...) (values trit? ...)]{
 
-@element["RktSymDef RktSym"]{circuit} is supposed to be a circuit-procedure
-as returned by a circuit-maker made by macro @nbr[make-circuit-maker].
+@element["RktSymDef RktSym"]{circuit} is supposed to be a @nbrl[circuit?]{circuit-procedure}
+as returned by a @nbrl[circuit-maker?]{circuit-maker} made by macro @nbr[make-circuit-maker].
 The number of @nbr[input]s must match the number of @nbr[input]s given to @nbr[make-circuit-maker].
 The number of returned values is the same as the number of @nbr[output]s
 given to @nbr[make-circuit-maker].
