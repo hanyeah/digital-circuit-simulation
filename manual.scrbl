@@ -10,7 +10,7 @@
   (for-template "make-circuit.rkt" racket)
   (for-syntax racket)) 
 
-@title[#:version ""]{Logical circuits}
+@title[#:version ""]{Digital circuits}
 @author{Jacob J. A. Koot}
 @(defmodule "make-circuit.rkt" #:packages ())
 
@@ -76,8 +76,8 @@ Name the wires as follows:
  (@tt{reset}         "=" (list "wire between the upper two " @nbr[Nand] "-gates in the diagram"))
  (@tt{set}           "=" (list "wire between the lower two " @nbr[Nand] "-gates in the diagram")))
  #:sep (hspace 1)]}
-With macro @nbr[make-circuit-maker] the diagram
-can be translated to a procedure by straight forwardly following the diagram:
+With macro @nbr[make-circuit-maker] the circuit
+can be coded in @(Rckt) by straightforwardly following the diagram.
 
 @Interaction*[
 (define make-D-latch
@@ -170,7 +170,7 @@ Each @nbr[gate-expr] must return as many values as its @nbr[gate] has
 A @nbr[gate] of the form @nbr[(id gate-expr)] is treated as @nbr[((id) gate-expr)].
 
 The @nbr[name] is used for the @nbr[object-name] and the printed form of the circuit-maker
-and the circuit-procedures made by the circuit-maker:
+and the circuit-procedures made by the circuit-maker. Here is an empty circuit:
 
 @Interaction[
 (define make-circuit (make-circuit-maker monkey () ()))
@@ -313,7 +313,7 @@ In the following example instability is detected and an exception is raised:
  (@nbr[(Indeterminate? obj)] "is the same as" @nbr[(eq? obj '?)]))
  #:sep (hspace 1)]}
 
-@bold{Bits form a subset of the set of trits}
+Bits form a subset of the set of trits:
 @deftogether[
  (@defthing[bits (list/c bit? bit?) #:value (list F T)]
   @defthing[bit-seq sequence? #:value (in-list bits)])]
@@ -377,6 +377,7 @@ Given one argument, @nbr[Nand] does the same as @nbr[Not]:
 (for*/and ((a trit-seq) (b trit-seq))
  (eq? (Nand a b) (Nand b a)))
 (for*/and ((a trit-seq) (b trit-seq) (c trit-seq))
+ (define Nand-a-b-c (Nand a b c))
  (eq? (Nand (Nand a b) c) (Nand a (Nand b c))))]}
 
 @defproc[(Or (input trit?) ...) trit?]{
@@ -479,22 +480,22 @@ Let's check this:
   (eq? result
    (Nand (Nand then else) (Nand test then) (Nand (Not test) else)))))]
 @(inset (make-truth-table (test then else) (If test then else) #f))
-An indeterminate @nbr[test] is ignored when @nbr[then] and @nbr[else] are the same:
+An indeterminate @nbr[test] is ignored when @nbr[then] and @nbr[else] are the same and determinated:
 @Interaction[
 (If ? 0 0)
 (If ? 1 1)]}
 
 @section{Tables}
 
-@defform[(truth-table (id ...) expr maybe-no-?)
-         #:grammar ((maybe-no-? (code:line) #:no-?))]{
+@defform[(truth-table (id ...) expr maybe-omit-?)
+         #:grammar ((maybe-omit-? (code:line) #:omit-?))]{
 The @nbr[id]s are bound within the @nbr[expr].
-Keyword @nbr[#:no-?] may appear before, among or after the other fields of the form,
+Keyword @nbr[#:omit-?] may appear before, among or after the other fields of the form,
 but must not appear more than once.
 Let n be the number @nb{of @nbr[id]s.}
-If keyword @nbr[#:no-?] is absent the @nbr[expr] is evaluated 3@↑{n} times,
+If keyword @nbr[#:omit-?] is absent the @nbr[expr] is evaluated 3@↑{n} times,
 @nb{one time} for each combination of @nb{n @nbrl[trit?]{trits}}.
-@nb{If keyword @nbr[#:no-?]} is present the @nbr[expr] is evaluated 2@↑{n} times,
+@nb{If keyword @nbr[#:omit-?]} is present the @nbr[expr] is evaluated 2@↑{n} times,
 @nb{one time} for each combination of @nb{n @nbrl[bit?]{bits}}.
 The result is a list of 3@↑{n} cq 2@↑{n} elements.
 @nb{Each element} of this list reads:
@@ -504,17 +505,17 @@ For example:
 @Interaction[
 (truth-table (a b) (values (And a b) (And (Not a) b)))]
 @Interaction[
-(truth-table (a b c) (If a b c) #:no-?)]
+(truth-table (a b c) (If a b c) #:omit-?)]
 @Interaction[
 (truth-table () (values))]
 Syntax @nbr[truth-table] can be used for the preparation of truth-tables, of course.
-The truth-tables of the elementary-gates in section @secref{Elementary gates}
+The truth-tables of the gates in section @secref{Elementary gates}
 have been prepared with help of procedure @nbr[truth-table].
 However, the procedure can produce other types of tables too.
 The following example checks that @nbr[(Nand a b)] always equals @nbr[(Or (Not a) (Not b))]:
 @Interaction[
 (define (ok? x) (eq? (caaddr x) #t))
-(code:comment "Use ok? in stead of eq? to make sure we don't inadvertently")
+(code:comment "Use ok? in stead of caaddr to make sure we don't inadvertently")
 (code:comment "access the wrong element of a line of the table,")
 (code:comment "which would be accepted as true too.")
 (andmap ok? 
@@ -522,7 +523,7 @@ The following example checks that @nbr[(Nand a b)] always equals @nbr[(Or (Not a
   (eq? (Nand a b) (Or (Not a) (Not b)))))]}
 
 @defproc[
-(make-inputs (n exact-nonnegative-integer) (include-? any/c)) (listof (listof trit?))]{
+(make-inputs (n exact-nonnegative-integer?) (include-? any/c)) (listof (listof trit?))]{
 If @nbr[include-?] is @nbr[#f] a list of all possible combinations of @nbr[n] @nbrl[bit?]{bits}
 is returned.@(lb)
 In this case there are 2@↑{n} combinations and
@@ -647,8 +648,8 @@ Because the outputs of procedure @tt{full-adder} do not depend on internal state
 In a real life circuit, @nb{six distinct} instances are required, of course.
 The same holds for the two uses of @nb{@tt{half-adder}} in @nb{@tt{full-adder}}.
 
-@Interaction*[(truth-table (a b) (half-adder a b) #:no-?)]
-@Interaction*[(truth-table (a b c-in) (full-adder a b c-in) #:no-?)]
+@Interaction*[(truth-table (a b) (half-adder a b) #:omit-?)]
+@Interaction*[(truth-table (a b c-in) (full-adder a b c-in) #:omit-?)]
 
 We need procedures for the conversion of
 @nbrl[exact-nonnegative-integer?]{exact natural numbers} to lists of bits.
@@ -859,7 +860,8 @@ State transition table for JK-latch after clock up @tt{(T=1)} followed by clock 
  #:row-properties '((top-border bottom-border) () () () bottom-border)
  #:column-properties '(()()()() center center left)
  #:sep (hspace 2)]}
-In the master-slave flip-flop we need two distinct instances of the JK-latch.
+In the master-slave flip-flop we need two distinct instances of the JK-latch,
+one for the master and one for the slave:
 @Interaction*[
 (define make-master-slave-flip-flop
  (let ((master (make-JK-latch)) (slave (make-JK-latch)))
