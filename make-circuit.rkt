@@ -1,9 +1,40 @@
 #lang racket
+
+;=====================================================================================================
  
 (require (for-syntax racket racket/syntax))
-(provide make-circuit-maker trit? bit? ? F T trits trit-seq bits bit-seq)
-(provide Not And Or Xor Eq Nand Nor Implies If True? False? Indeterminate?)
-(provide make-inputs truth-table run-circuit circuit? circuit-maker?)
+
+(provide
+ make-circuit-maker
+ trit?
+ bit?
+ ?
+ F
+ T
+ trits
+ trit-seq
+ bits
+ bit-seq
+ Not
+ And
+ Or
+ Xor
+ Eq
+ Nand
+ Nor
+ Implies
+ If
+ True?
+ False?
+ Indeterminate?
+ make-inputs
+ truth-table
+ run-circuit
+ circuit?
+ circuit-maker?)
+
+;=====================================================================================================
+; Structs for curcuit-makers and circuits themselfes.
 
 (define (circuit-maker-printer circuit-maker port mode)
  (fprintf port "#<circuit-maker:~s>" (circuit-maker-name circuit-maker)))
@@ -21,6 +52,9 @@
  #:property prop:custom-write circuit-printer
  #:property prop:object-name 0)
 
+;=====================================================================================================
+; Trinary logic.
+
 (define ? '?)
 (define F 0)
 (define T 1)
@@ -30,9 +64,14 @@
 (define (trit? p) (or (eq? p 0) (eq? p 1) (eq? p ?)))
 (define trits '(0 1 ?))
 (define trit-seq (in-list trits))
+
+; Binary logic.
 (define (bit? p) (or (eq? p 0) (eq? p 1))) 
 (define bits '(0 1))
 (define bit-seq (in-list bits))
+
+;=====================================================================================================
+; Central part of the code
 
 (define-syntax (make-circuit-maker stx)
  (define (wrap stx)
@@ -81,14 +120,27 @@
             (else
              (let-values
               (((new-gate-output ...)
-                (let
-                 ((vals (call-with-values (λ () gate-expr) list)))
-                 (unless (= (length vals) gate-arity)
-                  (error 'name "incorrect nr of values for wires ~s" '(gate-output ...)))
-                 (unless (andmap trit? vals)
-                  (error 'name "non trit values found for gate-outputs: ~s~nvalues: ~s"
-                   '(gate-output ...) vals))
-                 (apply values vals))) ...)
+                (let-syntax
+                 ([gate-output
+                   (make-set!-transformer
+                    (lambda (stx)
+                     (syntax-case stx (set!)
+                      [(set! id v) #'(error 'name "assignment to gate-output ~s not allowed" 'id)]
+                      [id (identifier? #'id) #'gate-output])))] ... ...
+                  [input
+                   (make-set!-transformer
+                    (lambda (stx)
+                     (syntax-case stx (set!)
+                      [(set! id v) #'(error 'name "assignment to input ~s not allowed" 'id)]
+                      [id (identifier? #'id) #'input])))] ...)
+                 (let
+                  ((vals (call-with-values (λ () gate-expr) list)))
+                  (unless (= (length vals) gate-arity)
+                   (error 'name "incorrect nr of values for wires ~s" '(gate-output ...)))
+                  (unless (andmap trit? vals)
+                   (error 'name "non trit values found for gate-outputs: ~s~nvalues: ~s"
+                    '(gate-output ...) vals))
+                  (apply values vals)))) ...)
               (when report
                (printf "~nStep ~s of ~s:~n" step 'name)
                (printf "~s : ~s -> ~s~n" 'gate-output gate-output new-gate-output) ... ...)
@@ -142,6 +194,9 @@
   inputs)
  #t)
 
+;=====================================================================================================
+; Elementary gates.
+
 (define (Not p) (case p ((0) 1) ((1) 0) (else ?)))
 
 (define (And . p)
@@ -192,6 +247,9 @@
    (And condition then)
    (And (Not condition) else))))
 
+;=====================================================================================================
+; Tables
+
 (define-syntax (truth-table stx)
  (syntax-case stx ()
   ((_ (in ...) expr)
@@ -225,4 +283,6 @@
             (map cons? inputs))
     (append (map cons0 inputs)
             (map cons1 inputs))))))
-  
+
+;=====================================================================================================
+; The end
