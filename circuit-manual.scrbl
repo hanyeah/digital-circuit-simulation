@@ -3,16 +3,16 @@
 @;====================================================================================================
 @(require
   scribble/core
-  "make-circuit-maker.rkt"
+  "digital-circuits.rkt"
   "scribble-utensils.rkt"
-  (for-label "make-circuit-maker.rkt" racket racket/block)
-  (for-template "make-circuit-maker.rkt" racket)
+  (for-label "digital-circuits.rkt" racket racket/block)
+  (for-template "digital-circuits.rkt" racket)
   (for-syntax racket)) 
 @title[#:version ""]{Digital circuits}
 @author{Jacob J. A. Koot}
-@(defmodule "make-circuit-maker.rkt" #:packages ())
+@(defmodule "digital-circuits.rkt" #:packages ())
 @section{Introduction}
-Module @hyperlink["make-circuit-maker.rkt"]{make-circuit-maker.rkt}
+Module @hyperlink["digital-circuits.rkt"]{digital-circuits.rkt}
 provides a simple tool for the simulation of digital electronic circuits.
 @nb{The simulation} is done by a procedure that given the digital inputs calculates 
 the digital outputs.
@@ -20,7 +20,7 @@ the digital outputs.
 preserved between subsequent calls.
 @nb{The outputs} and new internal state can depend on both the inputs and the previous internal state.
 @nb{A flip-flop} is an example of such a circuit.
-Module @hyperlink["make-circuit-maker.rkt"]{make-circuit-maker.rkt}
+Module @hyperlink["digital-circuits.rkt"]{digital-circuits.rkt}
 uses a @seclink["Ternary logic"]{ternary logic} such as to include indeterminate signals:
 @inset{@Tabular[
 (("variable" "value"  "description") 
@@ -53,8 +53,8 @@ can depend on the previous @tt{state}.
 Hence, in order to set or reset the @nb{D-latch},
 set @tt{in} to @nbr[1] cq @nbr[0] and apply a @nbr[1]-pulse to the @tt{clock}.
 Leave the @tt{clock} low at @nbr[0] in order to preserve the state.
-There are several ways to construct a D-latch using elementary gates only.
-The following diagram shows an example of a D-latch consisting of four @nbr[Nand]-gates.@(lb)
+There are several ways to construct a D-latch.
+The following diagram shows a D-latch consisting of four @nbr[Nand]-gates.@(lb)
 @ignore{@inset{@image["D-Type_Transparent_Latch.svg"]}}
 @inset{@image["D-latch.gif" #:scale 0.3]}
 With help of macro @nbr[make-circuit-maker] a procedure for simulation of the circuit can be made 
@@ -85,13 +85,15 @@ Once stable the @tt{state} remains as it is after the
 
 Let's test the @nb{D-latch} for all binary combinations for
 @tt{in}, @tt{clock} and @nb{old @tt{state}:}
+@(define D-latch-comment (list "Apply the D-latch to the combination of "
+                               @black{@tt{in}} " and " @black{@tt{clock}} ". Check it."))
 @Interaction*[
 (for* ((in bit-seq) (clock bit-seq) (state bit-seq))
- (code:comment "First put the D-latch in state=state")
- (code:comment "and check that the D-latch indeed is put in state=state.")
+ (code:comment #,(list "First put the D-latch in state " @black{@tt{state}} " and check"))
+ (code:comment "that the D-latch indeed is put in this state.")
  (unless (= (D-latch state 1) state)
   (error "test fails"))
- (code:comment "Apply the D-latch to the combination of in and clock. Check it.")
+ (code:comment #,D-latch-comment)
  (unless (= (D-latch in clock) (If clock in state))
   (error "test fails")))
 (printf "Hurray, test passed.~n")]
@@ -109,11 +111,11 @@ This suggests that we can describe a @nb{D-latch} in a simpler way with an @nbr[
 Let's check the @tt{simplified-@nb{D-latch}}:
 @Interaction*[
 (for* ((in bit-seq) (clock bit-seq) (state bit-seq))
- (code:comment "First put the D-latch in state=state")
- (code:comment "and check that the D-latch indeed is put in state=state.")
+ (code:comment #,(list "First put the D-latch in state " @black{@tt{state}} " and check"))
+ (code:comment "that the D-latch indeed is put in this state.")
  (unless (= (simplified-D-latch state 1) state)
   (error "test fails"))
- (code:comment "Apply the D-latch to the combination of in and clock. Check it.")
+ (code:comment #,D-latch-comment)
  (unless
   (= (simplified-D-latch in clock) (case clock ((0) state) ((1) in)))
   (error "test fails")))
@@ -222,9 +224,9 @@ The internal state is preserved for the next call to the circuit-procedure.
 When repetition of a previous unstable internal state is detected,
 the simulation is terminated, for otherwise the circuit-procedure would loop forever.
 Because a circuit-procedure has a finite number of
-feasible internal states and memorizes and inspects these states,
+feasible internal states and memorizes and inspects the history of states,
 loops always are detected.
-@nb{Each time} a circuit-procedure is called, its memory is cleared,
+@nb{Each time} a circuit-procedure is called, its history is cleared,
 for otherwise it might halt prematurely when called repeatedly.
 
 The @nbr[output]s of a circuit can depend on the internal state.
@@ -570,9 +572,9 @@ The 6-bit adder:
    (code:comment "Outputs:")
    (sum carry-out)
    (code:comment "Gates:")
-   ((half-sum  half-carry) (half-adder a b))
-   ((     sum other-carry) (half-adder carry-in half-sum))
-   ((carry-out) (Or other-carry half-carry)))))
+   ((half-sum half-carry-1) (half-adder a b))
+   ((     sum half-carry-2) (half-adder carry-in half-sum))
+   ((carry-out) (Or half-carry-1 half-carry-2)))))
 (code:comment " ")
 (define half-adder
  (code:comment "bit bit -> bit carry")
@@ -584,9 +586,21 @@ Because the outputs of procedure @tt{full-adder} do not depend on internal state
 @nb{we can} use the same instance six times in procedure @tt{6-bit-adder}.
 In a real life circuit, @nb{six distinct} instances are required, of course.
 The same holds for the two uses of @nb{@tt{half-adder}} in @nb{@tt{full-adder}}.
-@Interaction*[(truth-table (a b) (half-adder a b) #:omit-?)]
-@Interaction*[(truth-table (a b carry-in) (full-adder a b carry-in) #:omit-?)]
-We need procedures for the conversion of
+In the follwing two tables the right column shows @nb{@tt{(sum carry)}} cq @nb{@tt{(sum carry-out)}}:
+@(define half-adder ((make-circuit-maker half-adder
+                      (a b) (sum carry)
+                      (sum   (Xor a b))
+                      (carry (And a b)))))
+@(define full-adder
+ ((make-circuit-maker full-adder
+   (a b carry-in)
+   (sum carry-out)
+   ((half-sum half-carry-1) (half-adder a b))
+   ((     sum half-carry-2) (half-adder carry-in half-sum))
+   ((carry-out) (Or half-carry-1 half-carry-2)))))
+@(inset{make-truth-table (a b) (half-adder a b) #f})
+@(inset{make-truth-table (a b carry-in) (full-adder a b carry-in) #f})
+For testing we need procedures for the conversion of
 @nbrl[exact-nonnegative-integer?]{exact natural numbers} to lists of bits.
 @Interaction*[
 (define bitmasks (reverse '(1 2 4 8 16 32)))
@@ -823,25 +837,24 @@ When @tt{T=0}, @tt{J} and @tt{K} are irrelevant and we take @tt{J=K=?}.
 (define (clock-the-master-slave-flip-flop J K)
  (master-slave-flip-flop J K 1)
  (master-slave-flip-flop ? ? 0))]
-Let's test the master-slave flip-flop
+Let's test clocking the master-slave flip-flop for all combinations of old state @tt{(P Q)}@(lb)
+and the inputs @tt{J} and @tt{K}:
 @Interaction*[
-(let-values (((P Q) (clock-the-master-slave-flip-flop 0 1)))
- (code:comment "Now the flip-flop has been initialized.")
- (code:comment "Clock 100 times with random J and K.")
- (for/fold
-  ((P P) (Q Q)
-   #:result (printf "Test passed.~n"))
-  ((k (in-range 100)))
-  (define-values (J K) (values (random 2) (random 2)))
-  (define-values (new-P new-Q) (clock-the-master-slave-flip-flop J K))
-  (unless  (code:comment "Check")
-   (case (list J K)
-    (((0 0)) (equal? (list new-P new-Q) (list P Q)))
-    (((1 0)) (equal? (list new-P new-Q) (list 1 0)))
-    (((0 1)) (equal? (list new-P new-Q) (list 0 1)))
-    (((1 1)) (equal? (list new-P new-Q) (list Q P)))
-    (else #f))
-   (error "Test failed"))
-  (values new-P new-Q)))]
+(for*/and ((P bit-seq) (J bit-seq) (K bit-seq))
+ (define Q (Not P))
+ (code:comment "Initialize the flip-flop in state (P Q) and check it.")
+ (define-values (old-P old-Q) (clock-the-master-slave-flip-flop P Q))
+ (unless (and (= old-P P) (= old-Q Q)) (error "test fails"))
+ (code:comment "Clock the flip-flop with J and K.")
+ (define-values (new-P new-Q) (clock-the-master-slave-flip-flop J K))
+ (printf "(J=~s, K=~s, (P Q)=~s : clocking gives (P Q)=~s~n"
+  J K (list old-P old-Q) (list new-P new-Q))
+ (code:comment "Check:")
+ (case (list J K)
+  (((0 0)) (equal? (list new-P new-Q) (list old-P old-Q)))
+  (((1 0)) (equal? (list new-P new-Q) (list 1     0)))
+  (((0 1)) (equal? (list new-P new-Q) (list 0     1)))
+  (((1 1)) (equal? (list new-P new-Q) (list old-Q old-P)))
+  (else (error "test fails"))))]
 
 @(bold (larger (larger "The end")))
