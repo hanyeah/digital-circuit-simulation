@@ -8,9 +8,9 @@
   scribble/racket
   racket
   racket/block
-  "make-circuit.rkt"
-  (for-label "make-circuit.rkt" racket racket/block)
-  (for-template "make-circuit.rkt" racket racket/block)
+  "make-circuit-maker.rkt"
+  (for-label "make-circuit-maker.rkt" racket racket/block)
+  (for-template "make-circuit-maker.rkt" racket racket/block)
   (for-syntax racket racket/block))
 
 @(provide (all-defined-out))
@@ -19,7 +19,7 @@
   (interaction #:eval
    (make-base-eval
     #:lang '(begin
-             (require racket "make-circuit.rkt" racket/block)
+             (require racket "make-circuit-maker.rkt" racket/block)
              (print-as-expression #f))) x ...))
 
 @(define-syntax-rule (Interaction* x ...)
@@ -28,7 +28,7 @@
 @(define (make-evaller)
   (make-base-eval
    #:lang '(begin
-            (require racket "make-circuit.rkt" racket/block)
+            (require racket "make-circuit-maker.rkt" racket/block)
             (print-as-expression #f))))
 
 @(define evaller (make-evaller))
