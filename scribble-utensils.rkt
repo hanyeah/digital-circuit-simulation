@@ -8,9 +8,9 @@
   scribble/racket
   racket
   racket/block
-  "make-circuit-maker.rkt"
-  (for-label "make-circuit-maker.rkt" racket racket/block)
-  (for-template "make-circuit-maker.rkt" racket racket/block)
+  "digital-circuits.rkt"
+  (for-label "digital-circuits.rkt" racket racket/block)
+  (for-template "digital-circuits.rkt" racket racket/block)
   (for-syntax racket racket/block))
 
 @(provide (all-defined-out))
@@ -19,7 +19,7 @@
   (interaction #:eval
    (make-base-eval
     #:lang '(begin
-             (require racket "make-circuit-maker.rkt" racket/block)
+             (require racket "digital-circuits.rkt" racket/block)
              (print-as-expression #f))) x ...))
 
 @(define-syntax-rule (Interaction* x ...)
@@ -28,7 +28,7 @@
 @(define (make-evaller)
   (make-base-eval
    #:lang '(begin
-            (require racket "make-circuit-maker.rkt" racket/block)
+            (require racket "digital-circuits.rkt" racket/block)
             (print-as-expression #f))))
 
 @(define evaller (make-evaller))
@@ -125,28 +125,7 @@
      #:sep (hspace 1)
      #:row-properties
      (append (cons '(top-border bottom-border)
-                   (append (make-list (sub1 m) '()) (list 'bottom-border)))))))
-  ((_ (in ...) expr #:omit-?)
- #'(let*
-    ((table (X-sort (truth-table (in ...) expr #:omit-?)))
-     (table-reverse (map reverse table))
-     (table-ins (map reverse (map cdr table-reverse)))
-     (table-outs (map (λ (x) (if (= (length x) 1) (car x) x)) (map car table-reverse)))
-     (n (length '(in ...)))
-     (m (length table)))
-    (define (t x) (tt (format "~a" x)))
-    (tabular
-     (cons
-      (list (t 'in) ... "→" (t 'expr))
-      (for/list ((table-in (in-list table-ins)) (table-out (in-list table-outs)))
-       (append
-        (for/list ((x (in-list table-in))) (t x))
-        (list "→" (t table-out)))))
-     #:sep (hspace 1)
-     #:row-properties
-     (append (cons '(top-border bottom-border)
-                   (append (make-list (sub1 m) '()) (list 'bottom-border))))
-     #:column-properties (make-list (+ n 2) 'left))))))
+                   (append (make-list (sub1 m) '()) (list 'bottom-border)))))))))
 
 @(define (X-sort table) (sort table X-inputs-<?))
 
