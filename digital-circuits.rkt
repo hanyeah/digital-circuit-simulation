@@ -89,16 +89,16 @@
      ((gate-arity ...) (map length (syntax->datum #'((gate-output ...) ...)))))
     (check-make-circuit-maker-form
    #'((input ...) (output ...) ((gate-output ...) gate-expr) ...))
-  #'(let ((name (check-name name-expr)))
+  #'(let* ((name (check-name name-expr)) (sname (or name '|#f|)))
      (circuit-maker name
       (lambda ()
        (circuit name
         (let ((saved-gate-output ?) ... ... (active (make-parameter #f)))
          (λ (input ... #:report (report #f) #:unstable-error (unstable-error #t))
-          (when (active) (error name "direct or indirect recursive call"))
+          (when (active) (error sname "direct or indirect recursive call"))
           (parameterize ((active #t))
            (unless (trit? input)
-            (error name "input ~s must be a trit, given: ~s" 'input input))...
+            (error sname "input ~s must be a trit, given: ~s" 'input input))...
            (when report
             (printf "~nReport of circuit ~s:~n~n" name)
             (printf "Inputs:~n")
@@ -110,7 +110,7 @@
              ((member (list gate-output ... ...) history)
               (cond
                (unstable-error
-                (error name
+                (error sname
                  (string-append
                   "repeated unstable state~n"
                   (format "  ~s = ~s~n" 'input input) ...
@@ -127,20 +127,21 @@
                     (make-set!-transformer
                      (lambda (stx)
                       (syntax-case stx (set!)
-                       [(set! id v) #'(error name "assignment to gate-output '~s' not allowed" 'id)]
+                       [(set! id v)
+                      #'(error sname "assignment to gate-output '~s' prohibited" 'id)]
                        [id (identifier? #'id) #'gate-output])))] ... ...
                    [input
                     (make-set!-transformer
                      (lambda (stx)
                       (syntax-case stx (set!)
-                       [(set! id v) #'(error name "assignment to input '~s' not allowed" 'id)]
+                       [(set! id v) #'(error sname "assignment to input '~s' prohibited" 'id)]
                        [id (identifier? #'id) #'input])))] ...)
                   (let
                    ((vals (call-with-values (λ () gate-expr) list)))
                    (unless (= (length vals) gate-arity)
-                    (error name "incorrect nr of values for wires ~s" '(gate-output ...)))
+                    (error sname "incorrect nr of values for wires ~s" '(gate-output ...)))
                    (unless (andmap trit? vals)
-                    (error name "non trit values found for gate-outputs: ~s~nvalues: ~s"
+                    (error sname "non trit values found for gate-outputs: ~s~nvalues: ~s"
                      '(gate-output ...) vals))
                    (apply values vals)))) ...)
                (when report
@@ -165,7 +166,7 @@
 
 (define (check-name name)
  (unless (or (symbol? name) (not name))
-  (raise-argument-error 'make-circuit-maker "(or/c symbol? #f)" name))
+  (raise-argument-error 'make-circuit-maker "symbol?" name))
  name)
 
 (define-for-syntax (check-make-circuit-maker-form stx)
@@ -257,19 +258,30 @@
 ; Tables
 
 (define-syntax (truth-table stx)
+ (define (check ids)
+  (let ((ids (syntax->list ids)))
+   (for ((id (in-list ids)))
+    (unless (identifier? id)
+     (raise-syntax-error 'truth-table "identifier expected" stx id)))
+   (define dup-id (check-duplicate-identifier ids))
+   (when dup-id (raise-syntax-error 'truth-table "duplicate identifier" stx dup-id))))
  (syntax-case stx ()
-  ((_ (in ...) expr)
- #'(for*/list ((in trit-seq) ...)
-    (list in ... (call-with-values (λ () expr) list))))
-  ((_ (in ...) expr #:omit-?)
- #'(for*/list ((in (in-list '(0 1))) ...)
-    (list in ... (call-with-values (λ () expr) list))))
-  ((_ (in ...) #:omit-? expr)
- #'(for*/list ((in (in-list '(0 1))) ...)
-    (list in ... (call-with-values (λ () expr) list))))
-  ((_  #:omit-? (in ...) expr)
- #'(for*/list ((in (in-list '(0 1))) ...)
-    (list in ... (call-with-values (λ () expr) list))))))
+  ((_ (id ...) expr)
+   (check #'(id ...))
+ #'(for*/list ((id trit-seq) ...)
+    (list id ... (call-with-values (λ () expr) list))))
+  ((_ (id ...) expr #:omit-?)
+   (check #'(id ...))
+ #'(for*/list ((id (in-list '(0 1))) ...)
+    (list id ... (call-with-values (λ () expr) list))))
+  ((_ (id ...) #:omit-? expr)
+   (check #'(id ...))
+ #'(for*/list ((id (in-list '(0 1))) ...)
+    (list id ... (call-with-values (λ () expr) list))))
+  ((_  #:omit-? (id ...) expr)
+   (check #'(id ...))
+ #'(for*/list ((id (in-list '(0 1))) ...)
+    (list id ... (call-with-values (λ () expr) list))))))
 
 (define (run-circuit circuit list-of-list-of-inputs)
  (for/list ((args (in-list list-of-list-of-inputs)))
