@@ -68,7 +68,7 @@ The following diagram shows a D-latch consisting of four @nbr[Nand]-gates.@(lb)
 @ignore{@inset{@image["D-Type_Transparent_Latch.svg"]}}
 @inset{@image["D-latch.gif" #:scale 0.5]}
 With syntax @nbr[make-circuit-maker] a procedure for simulation of the circuit
-can be made by straightforwardly following the diagram:
+can be made by straightforwardly describing the diagram:
 @Interaction*[
 (define make-D-latch
  (make-circuit-maker
@@ -107,12 +107,13 @@ Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} v
    ((= in    0) 'reset)
    ((= in    1) 'set)))
  (code:comment "We print some details in a table.")
- (define line "-------------------------------------~n")
+ (printf " ~n")
+ (define line "   ─────────────────────────────────────~n")
  (printf line)
- (printf "in clock old-state new-state action~n")
+ (printf "   in clock old-state new-state action~n")
  (printf line)
  (code:comment "The test proper.")
- (for* ((in bit-seq) (clock bit-seq) (state bit-seq))
+ (for* ((clock bit-seq) (in bit-seq) (state bit-seq))
   (code:comment #,(list "First put the D-latch in old state " @black{@tt{state}} " and check"))
   (code:comment "that the D-latch indeed assumes this state.")
   (define-values (old-state old-state-inverse) (D-latch state 1))
@@ -128,10 +129,11 @@ Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} v
     (eq? new-state (If clock in state))
     (eq? new-state-inverse (Not new-state)))
    (error "test fails"))
-  (printf" ~s   ~s      ~s         ~s      ~s~n"
+  (printf"    ~s   ~s      ~s         ~s      ~s~n"
    in clock old-state new-state (action in clock)))
  (printf line)
- (printf "Hurray, test passed.~n"))]
+ (printf " ~n")
+ (printf "   Hurray, test passed.~n"))]
 @(reset-Interaction*)
 More examples in section @secref["Elaborated examples"].
 @section[#:tag "mcm"]{Make-circuit-maker}
