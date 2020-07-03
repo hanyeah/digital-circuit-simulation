@@ -136,6 +136,10 @@
   (make-element-id-transformer
    (lambda _ #'(tt "set"))))
 
+@(define-syntax RESET
+  (make-element-id-transformer
+   (lambda _ #'(tt "reset"))))
+
 @(define-syntax ELSE
   (make-element-id-transformer
    (lambda _ #'(tt "else"))))
