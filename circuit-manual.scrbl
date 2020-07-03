@@ -899,7 +899,7 @@ one for the master and one for the slave:
    (P Q)       (code:comment "outputs")
    (code:comment "The two JK-flip-flops, one for the master and one for the slave.")
    ((SET reset) (master (Nand (Nand J (Not K)) (Nand J Q))
-                        (Nand (Nand (Not J) K) (Nand K P))
+                        (Nand (Nand K (Not J)) (Nand K P))
                         clock))
    ((P Q) (slave SET reset (Not clock))))))
 (define master-slave-flip-flop (make-master-slave-flip-flop))]
