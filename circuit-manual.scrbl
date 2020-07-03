@@ -724,11 +724,15 @@ It returns six values:
 Let's test the @tt{6-bit-adder}.
 @Interaction*[
 (for*/and
- ((x (in-range -32 32))
-  (y (in-range -32 32))
-  #:when (< -33 (+ x y) 32))
- (let-values (((x y x+y xb yb x+yb) (do-example x y)))
-  (= (6b->n x+yb) (+ x y))))]
+ ((a (in-range -32 32))
+  (b (in-range -32 32)))
+ (define port (open-output-string))
+ (define-values (x y x+y xb yb x+yb)
+  (parameterize ((current-output-port port)) (do-example a b)))
+ (define ov (get-output-string port))
+ (cond
+  ((< -33 (+ a b) 32) (and (= (6b->n x+yb) (+ a b)) (equal? ov "")))
+  (else (equal? ov "Overflow detected.\n"))))]
 We show some examples.
 Each example shows the two operands and the sum, both in decimal and in binary notation
 as a list of bits.
@@ -817,7 +821,7 @@ The overflow bit of the lower 6-bit-adder can be ignored.
   (else
    (set! nr-of-overflows (add1 nr-of-overflows))
    (T? (car ov/c/x+y)))))
-(printf "overflows: ~s, without overflow: ~s~n"
+(printf "with overflow: ~s, without overflow: ~s~n"
  nr-of-overflows (- n nr-of-overflows))
 (code:comment " ")
 (code:comment "1023 + 85 = 1108")
@@ -860,11 +864,14 @@ An n-bit entity interpreted as a two's complement number is confined to the rang
  (unless (T? ov) (error "Overflow not detected"))
  (printf "Overflow detected.~n"))]
 @(reset-Interaction*)
-Using the adders for unsigned numbers:@(lb)
+@subsection{Unsigned numbers}
 The @tt{6-bit-adder} and @tt{12-bit-adder} can be used for unsigned numbers too.
 In that case the carry-out bit being @nbr[1] indicates overflow and the overflow bit can be ignored.
-@subsection{Master-slave flip-flop}
-There several ways to construct a master-slave flip-flop.
+@subsection{Twin flip-flop}
+@note{Usually called a ‘master-slave flip-flop’, but this is not a happy name.@(lb)
+It certainly hurts many people.
+Be assured that for me too: @bold{@italic{black lives matter!}}}
+There several ways to construct a twin flip-flop. The twin has a first and a second subcircuit.
 Below two JK-flip-flops are used.
 @Interaction*[
 (define make-JK-flip-flop
@@ -888,24 +895,28 @@ State transition table for a JK-flip-flop after a @nbr[1]-pulse on the @tt{clock
  #:row-properties '((top-border bottom-border) () () () bottom-border)
  #:column-properties '(()()()() center center left)
  #:sep (hspace 2)]}
-Because a JK-flip-flop has preserved internal state, we need two distinct instances of it
-in the master-slave flip-flop,
-one for the master and one for the slave:
+Because a JK-flip-flop has preserved internal state, we need two distinct instances
+in the twin flip-flop, one for the first and one for the second one:
 @Interaction*[
-(define make-master-slave-flip-flop
- (let ((master (make-JK-flip-flop)) (slave (make-JK-flip-flop)))
-  (make-circuit-maker 'master-slave-flip-flop
+(define make-twin-flip-flop
+ (let ((FIRST (make-JK-flip-flop)) (SECOND (make-JK-flip-flop)))
+  (make-circuit-maker 'twin-flip-flop
    (J K clock) (code:comment "inputs")
    (P Q)       (code:comment "outputs")
-   (code:comment "The two JK-flip-flops, one for the master and one for the slave.")
-   ((SET reset) (master (Nand (Nand J (Not K)) (Nand J Q))
-                        (Nand (Nand K (Not J)) (Nand K P))
-                        clock))
-   ((P Q) (slave SET reset (Not clock))))))
-(define master-slave-flip-flop (make-master-slave-flip-flop))]
+   (code:comment "The two JK-flip-flops.")
+   (code:comment "The inputs for the first one are a little bit complicated,")
+   (code:comment "because they depend on the inputs J and K and the state (P Q).")
+   ((SET reset) (FIRST (Nand (Nand J (Not K)) (Nand J Q))
+                       (Nand (Nand K (Not J)) (Nand K P))
+                       clock))
+   (code:comment "You may want to rewrite the inputs of the")
+   (code:comment #,(list "first one in terms of "@nbr[And]", "@nbr[Or]" and "@nbr[Not]"."))
+   ((P Q) (SECOND SET reset (Not clock))))))
+(code:comment " ")
+(define twin-flip-flop (make-twin-flip-flop))]
 @tt{P} and @tt{Q} always are inverses of each other.
-They are the state and inversed state of the master-slave flip-flop.
-State transition table for the master-slave flip-flop after a @nbr[1]-pulse on the @tt{clock}.
+They are the state and inversed state of the twin flip-flop.
+State transition table for the twin flip-flop after a @nbr[1]-pulse on the @tt{clock}.
 @inset{@Tabular[
 (((tt "J") (tt"K") (tt"P") (tt"Q") (list "new "(tt "P")) (list "new "(tt "Q")) "Action")
  ((tt "0") (tt "0") (tt "P") (tt "Q") (tt "P") (tt "Q") "No change")
@@ -915,26 +926,27 @@ State transition table for the master-slave flip-flop after a @nbr[1]-pulse on t
  #:row-properties '((top-border bottom-border) () () () bottom-border)
  #:column-properties '(()()()() 'center 'center 'left)
  #:sep (hspace 2)]}
-In order to clock the master-slave flip-flop we need two calls,
-one with @tt{clock=1} to set or reset or flip the master or to leave it as it is and
-one call with @tt{clock=0} in order to copy the state of the master into the slave.
-@tt{clock=1} may change the master but leaves the slave unaffected.
-@tt{clock=0} leaves the master unaffected and copies the state of the master into the slave.
+In order to clock the twin flip-flop we need two calls,
+one with @tt{clock=1} to set or reset or flip the first one or to leave it as it is and
+one call with @tt{clock=0} in order to copy the state of the first one into the second one.
+@tt{clock=1} may change the first one but leaves the second one unaffected.
+@tt{clock=0} leaves the first one unaffected and
+copies the state of the first one into the second one.
 When @tt{clock=0}, @tt{J} and @tt{K} are irrelevant and we take @tt{J=K=?}.
 @Interaction*[
-(define (clock-the-master-slave-flip-flop J K)
- (master-slave-flip-flop J K 1)
- (master-slave-flip-flop ? ? 0))]
-Let's test clocking the master-slave flip-flop for all combinations of old state @tt{(P Q)}@(lb)
+(define (clock-the-twin-flip-flop J K)
+ (twin-flip-flop J K 1)
+ (twin-flip-flop ? ? 0))]
+Let's test clocking the twin flip-flop for all combinations of old state @tt{(P Q)}@(lb)
 and the inputs @tt{J} and @tt{K}:
 @Interaction*[
 (for* ((P bit-seq) (J bit-seq) (K bit-seq))
  (define Q (Not P))
  (code:comment "Put the flip-flop in state (P Q) and check it's done right.")
- (define-values (old-P old-Q) (clock-the-master-slave-flip-flop P Q))
+ (define-values (old-P old-Q) (clock-the-twin-flip-flop P Q))
  (unless (and (= old-P P) (= old-Q Q)) (error "test fails"))
  (code:comment "Clock the flip-flop with J and K.")
- (define-values (new-P new-Q) (clock-the-master-slave-flip-flop J K))
+ (define-values (new-P new-Q) (clock-the-twin-flip-flop J K))
  (printf "(J=~s, K=~s, P=~s : new P=~s~n" J K old-P new-P)
  (code:comment "Check:")
  (case (list J K)
