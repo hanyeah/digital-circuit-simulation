@@ -19,7 +19,8 @@
   (interaction #:eval
    (make-base-eval
     #:lang '(begin
-             (require racket "digital-circuits.rkt" racket/block)
+             (require racket "digital-circuits.rkt" racket/block
+                      (for-syntax racket racket/block))
              (print-as-expression #f))) x ...))
 
 @(define-syntax-rule (Interaction* x ...)
@@ -28,7 +29,8 @@
 @(define (make-evaller)
   (make-base-eval
    #:lang '(begin
-            (require racket "digital-circuits.rkt" racket/block)
+            (require racket "digital-circuits.rkt" racket/block
+                     (for-syntax racket racket/block))
             (print-as-expression #f))))
 
 @(define evaller (make-evaller))

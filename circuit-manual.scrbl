@@ -924,19 +924,16 @@ An n-bit entity interpreted as a two's complement number is confined to the rang
 @subsection{Unsigned numbers}
 The @tt{6-bit-adder} and @tt{12-bit-adder} can be used for unsigned numbers too.
 In that case the carry-out bit being @nbr[1] indicates overflow and the overflow bit can be ignored.
-@subsection{Pre-post flip-flop}
-@note{Usually called a ‘master-slave flip-flop’ but this is not a happy name.}
-There are several ways to construct a @nb{pre-post} flip-flop.@(lb)
+@subsection{Master-slave flip-flop}
+There are several ways to construct a @nb{master-slave} flip-flop.@(lb)
 Below two @nb{JK-latches} are used. Hence we first define a JK-latch maker.@(lb)
 Its diagram looks pretty much like that of a @elemref["D-latch"]{D-latch}.@(lb)
-You may want to draw the diagram according to the following definition:@(lb)
-@;@image["JK-latch.gif" #:scale 0.5]
+You may want to draw the diagram according to the following definition:
 @Interaction*[
 (define make-JK-latch
  (make-circuit-maker JK-latch
-  (J K clock) (code:comment "inputs")
-  (P Q)       (code:comment "outputs")
-  (code:comment "gates")
+  (J K clock) 
+  (P Q)       
   (reset (Nand J clock))
   (SET   (Nand K clock))
   (P     (Nand reset Q))
@@ -954,22 +951,27 @@ The state transition table for a JK-latch after a @nbr[1]-pulse on the @tt{clock
  #:column-properties '(()()()() center center left)
  #:sep (hspace 2)]}
 Because a JK-latch has preserved internal state, we need two distinct instances
-in the @nb{pre-post} flip-flop, one for the @nb{pre-part} and one for the @nb{post-part}:
+in the @nb{master-slave} flip-flop, one for the master and one for the slave:
 @Interaction*[
-(define make-pre-post-flip-flop
- (let ((pre-part  (make-JK-latch))
-       (post-part (make-JK-latch)))
-  (make-circuit-maker pre-post-flip-flop
-   (J K clock) (code:comment "inputs")
-   (P Q)       (code:comment "outputs")
-   (code:comment "The two JK-latchs:")
-   ((SET reset) (pre-part (And J (Nand K P)) (And K (Nand J Q)) clock))
-   ((P Q) (post-part SET reset (Not clock))))))
+(define make-master-slave-flip-flop
+ (let ((master (make-JK-latch))
+       (slave  (make-JK-latch)))
+  (make-circuit-maker master-slave-flip-flop
+   (J K clock) 
+   (P Q)
+   (code:comment "J and K for the master.")
+   (code:comment "When both J and K are 1, the slave must flip the master.")
+   (code:comment "Hence P and Q must be fed back to the master.")
+   (J1 (And J (Nand K P)))
+   (K1 (And K (Nand J Q)))
+   (code:comment "The two latches.")
+   ((J2 K2) (master J1 K1      clock))
+   ((P Q)   (slave  J2 K2 (Not clock))))))
 (code:comment " ")
-(define pre-post-flip-flop (make-pre-post-flip-flop))]
+(define master-slave-flip-flop (make-master-slave-flip-flop))]
 @tt{P} and @tt{Q} always are inverses of each other.
-They are the state and inverted state of the @nb{pre-post} flip-flop.
-The state transition table for the @nb{pre-post} flip-flop after a @nbr[1]-pulse on the
+They are the state and inverted state of the @nb{master-slave} flip-flop.
+The state transition table for the @nb{master-slave} flip-flop after a @nbr[1]-pulse on the
 @tt{clock} is as follows:
 @inset{@Tabular[
 (((tt "J") (tt "K") (tt "P") (tt "Q") (list "new "(tt "P")) (list "new "(tt "Q")) "Action")
@@ -980,34 +982,36 @@ The state transition table for the @nb{pre-post} flip-flop after a @nbr[1]-pulse
  #:row-properties '((top-border bottom-border) () () () bottom-border)
  #:column-properties '(()()()() 'center 'center 'left)
  #:sep (hspace 2)]}
-In order to clock the @nb{pre-post} flip-flop we need two calls,
-one with @tt{clock=1} to set or reset or flip the @nb{pre-part} or to leave it as it is and
-one call with @tt{clock=0} in order to copy the state of the @nb{pre-part} into the @nb{post-part}.
-@tt{clock=1} may change the @nb{pre-part} but leaves the @nb{post-part} unaffected.
-@tt{clock=0} leaves the @nb{pre-part} unaffected and
-copies the state of the @nb{pre-part} into the @nb{post-part}.
+In order to clock the @nb{master-slave} flip-flop we need two calls,
+one with @tt{clock=1} to set or reset or flip the master or to leave it as it is and
+one call with @tt{clock=0} in order to copy the state of the master into the slave.
+@tt{clock=1} may change the master but leaves the slave unaffected.
+@tt{clock=0} leaves the master unaffected and
+copies the state of the master into the slave.
 When @tt{clock=0}, @tt{J} and @tt{K} are irrelevant and we take @tt{J=K=?}.
 @Interaction*[
-(define (clock-the-pre-post-flip-flop J K)
- (pre-post-flip-flop J K 1)
- (pre-post-flip-flop ? ? 0))]
-Let's test clocking the @nb{pre-post} flip-flop for all combinations of
+(define (clock-the-master-slave-flip-flop J K)
+ (master-slave-flip-flop J K 1)(master-slave-flip-flop J K 0))]
+Let's test clocking the @nb{master-slave} flip-flop for all combinations of
 old state @nb{@tt{(P Q)}} and the inputs @tt{J} and @tt{K}:
 @Interaction*[
 (define table
  (for*/list ((P in-bits) (K in-bits) (J in-bits))
   (define Q (Not P))
   (code:comment "Put the flip-flop in state (P Q) and check it's done right.")
-  (define-values (old-P old-Q) (clock-the-pre-post-flip-flop P Q))
+  (define-values (old-P old-Q) (clock-the-master-slave-flip-flop P Q))
   (unless (and (= old-P P) (= old-Q Q)) (error "test fails"))
   (code:comment "Clock the flip-flop with J and K.")
-  (define-values (new-P new-Q) (clock-the-pre-post-flip-flop J K))
+  (define-values (new-P new-Q) (clock-the-master-slave-flip-flop J K))
   (code:comment "Check:")
+  (define (check computed expected)
+    (unless (equal? computed expected)
+     (error "test fails")))
   (case (list J K)
-   (((0 0)) (equal? (list new-P new-Q) (list old-P old-Q)))
-   (((0 1)) (equal? (list new-P new-Q) (list 0 1)))
-   (((1 0)) (equal? (list new-P new-Q) (list 1 0)))
-   (((1 1)) (equal? (list new-P new-Q) (list old-Q old-P)))
+   (((0 0)) (check (list new-P new-Q) (list old-P old-Q)))
+   (((0 1)) (check (list new-P new-Q) (list 0 1)))
+   (((1 0)) (check (list new-P new-Q) (list 1 0)))
+   (((1 1)) (check (list new-P new-Q) (list old-Q old-P)))
    (else (error "test fails")))
   (code:comment "Gather results.")
   (list J K (list old-P old-Q) (list new-P new-Q)
@@ -1034,3 +1038,4 @@ old state @nb{@tt{(P Q)}} and the inputs @tt{J} and @tt{K}:
  (printf "~a~n" line))]
 
 @(bold (larger (larger "The end")))
+@(reset-Interaction*)
