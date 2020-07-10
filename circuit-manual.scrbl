@@ -21,13 +21,13 @@ time at which the signals on the inputs can be changed.
 The outputs and new internal state can depend on both the inputs and the former internal state.
 @seclink["Ternary logic"]{Ternary logic} is used such as to include indeterminate signals:
 @inset{@Tabular[
-(("variable"  "value"  "description" (list "is a " @nbr[trit?]) (list "also a " @nbr[bit?]))
- (@nbr[F] @nbr['0] "false, off, low" "yes" "yes")
- (@nbr[T] @nbr['1] "true, on, high"  "yes" "yes")
- (@nbr[?] @nbr['?] "indeterminate"   "yes" "no"))
+(("variable" "value" "predicate" "description" (list "is a " @nbr[trit?]) (list "also a " @nbr[bit?]))
+ (@nbr[F] @nbr['0] @nbr[F?] "false, off, low" "yes" "yes")
+ (@nbr[T] @nbr['1] @nbr[T?] "true, on, high"  "yes" "yes")
+ (@nbr[?] @nbr['?] @nbr[??] "indeterminate"   "yes" "no"))
  #:sep (hspace 2)
  #:row-properties '((top-border bottom-border) () () bottom-border)
- #:column-properties '(center center center)]}
+ #:column-properties '(center center center center center center)]}
 Let n be the number of all wires in a circuit.
 The circuit cannot assume more than 3@↑{n} distinct ternary digital states, usually much less.
 @nbr[F] and @nbr[T] are no
@@ -65,7 +65,7 @@ The following diagram shows a D-latch consisting of four @nbr[Nand]-gates.@(lb)
 @ignore{@inset{@image["D-Type_Transparent_Latch.svg"]}}
 @inset{@image["D-latch.gif" #:scale 0.5]}
 With syntax @nbr[make-circuit-maker] a procedure for simulation of the circuit
-can be made by straightforwardly describing the diagram:
+can be made by straightforwardly listing the elements of the diagram:
 @Interaction*[
 (define make-D-latch
  (make-circuit-maker
@@ -90,7 +90,7 @@ When the @tt{clock} is @nbr[0], both @tt{set} and @tt{reset} raise to @nbr[1]
 (as far as not already @nbr[1])
 and the two @nbr[Nand]-gates act as a loop of two inverters for
 the signals @tt{state} and @tt{state-inverse}.
-@note{When power is switched on, the D-latch must be set or reset with a @nbr[1]-pulse on the
+@note{When power is switched on, the D-latch must be reset or set with a @nbr[1]-pulse on the
 @tt{clock} and @tt{in} hold at @nbr[0] or @nbr[1].
 This is necessary in order to stabilize the @tt{state} and @tt{state-inverse}.
 Otherwise they may vibrate for a while,
@@ -104,7 +104,7 @@ Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} v
   (list "Send signals " @black{@tt{in}} " and " @black{@tt{clock}} " to the D-latch and check."))
 @Interaction*[
 (define (test/make-table) (code:comment "Does tests and gathers info in a table.")
- (for*/list ((state bit-seq) (clock bit-seq) (in bit-seq))
+ (for*/list ((state in-bits) (clock in-bits) (in in-bits))
   (code:comment #,(list "First put the D-latch in old state " @black{@tt{state}} " and check"))
   (code:comment "that the D-latch indeed assumes this state.")
   (define-values (old-state old-state-inverse) (D-latch state 1))
@@ -122,10 +122,7 @@ Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} v
     (eq? new-state-inverse (Not new-state)))
    (error "test fails"))
   (code:comment "Add a line with all details to the table.")
-  (list
-   in clock
-   (list old-state old-state-inverse)
-   (list new-state new-state-inverse)
+  (list in clock old-state new-state
    (cond (code:comment "Description of the action.")
     ((= clock 0) "preserve state")
     ((= in 0)
@@ -143,14 +140,13 @@ Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} v
  (printf " ~n")
  (define line (string-append (make-string 58 #\─) "\n"))
  (printf line)
- (printf "           old-state  new-state~n")
- (printf "in  clock    (P Q)      (P Q)    action~n")
+ (printf "in  clock  old-state  new-state  action~n")
  (printf line)
  (code:comment "The test proper.")
  (define table (test/make-table))
  (code:comment "Print the results.")
  (for ((line (in-list table)))
-  (apply printf" ~s    ~s      ~s      ~s    ~a~n" line))
+  (apply printf " ~s    ~s        ~s          ~s      ~a~n" line))
  (code:comment "Close the table.")
  (printf line)
  (code:comment "Arriving here means that all went well.")
@@ -179,10 +175,10 @@ Returns a thunk.
 Each time the thunk is called it returns a distinct instance of a
 @elemref["circuit procedure"]{circuit procedure},
 id est, an instance with its own internal state.
-This can be important when the circuit has preserved internal state and
-several instances are needed in one or more other circuits.
+This is important when the @nbr[output]s of the circuit may depend on a preserved internal state and
+several instances are needed in one or more @nb{other circuits.}
 Each such instance must have its own internal state in order that
-the they do not perturb each others internal states.
+they @nb{do not} perturb each other's internal states.
 
 The following restrictions apply:
 
@@ -205,7 +201,9 @@ The last two requirements are checked while a
 @elemref["circuit procedure"]{circuit procecure} is running.
 The other requirements are checked immediately during expansion.
 The @nbr[gate-expr]s are not yet evaluated.
-They will be incorporated in the circuit procedures made by the circuit maker.
+They will be incorporated in the circuit procedure made by the circuit maker
+and will be evaluated one or more times when the circuit procedure is called.
+
 The @nbr[name] is used for the @nbr[object-name] and the
 @seclink["print-unreadable"
 #:doc '(lib "scribblings/reference/reference.scrbl")]{printed form}
@@ -265,6 +263,10 @@ as a probe on some or all wires:
 (define probed-circuit (make-probed-circuit))
 (probed-circuit)]
 The probe shows how the signal travels through the circuit from @tt{a} via @tt{b} to @tt{c}.
+Notice that the @nbr[gate-expr] of the probe is evaluated four times,
+as many times as needed to obtain a stable state.
+After step 3 the circuit procedure detects a stable state and terminates by returning its
+@nbr[output]s (none in this example).
 @defproc[#:kind "predicate" (circuit-maker? (obj any/c)) boolean?]{
 Predicate for thunks made by syntax @nbr[make-circuit-maker].}
 @defproc[#:kind "predicate" (circuit? (obj any/c)) boolean?]{
@@ -279,7 +281,7 @@ is supposed to be a @racketlink[circuit?]{circuit procedure}
 as returned by a @racketlink[circuit-maker?]{circuit maker} made by syntax 
 @racket[make-circuit-maker].
 The @racket[input]s correspond to those given to syntax @racket[make-circuit-maker].
-Exacly as many @nbr[input]s must be supplied as were given to @racket[make-circuit-maker].
+As many @nbr[input]s must be supplied as were given to @racket[make-circuit-maker].
 The circuit procedure returns a multiple value corresponding to the @racket[output]s
 given to @racket[make-circuit-maker].
 The combination of all @racket[gate-output]s is preserved as the internal state of the circuit.
@@ -291,8 +293,7 @@ all @racket[gate-expr]s are evaluated.
 as its @racket[gate] has @racket[gate-output]s.
 @nb{The values} must be @racketlink[trit?]{trits} of course.
 After all @racket[gate-expr]s have been evaluated,
-the values are transmitted to the @racket[gate-output]s without bothering about the delays that
-gates and subcircuits have in real life.
+the values are transmitted to the @racket[gate-output]s.
 More steps are made until all @racket[gate-output]s are stable.
 @nb{A @racket[gate-output]} is stable if it no longer changes value.
 After stability is obtained, the @racket[output]s are returned as a multiple value.
@@ -301,7 +302,7 @@ The internal state is preserved for the next call to the circuit procedure.
 When repetition of a previous unstable internal state is detected,
 the simulation is terminated, for otherwise the circuit procedure would loop forever.
 Because a circuit procedure has a finite number of
-feasible internal states and memorizes and inspects the history,
+feasible internal states and memorizes and inspects the history after each step,
 loops always are detected.
 A circuit procedure always starts with empty history and clears its history before returning.
 This prevents a circuit procedure form halting prematurely when called repeatedly.
@@ -320,7 +321,8 @@ id est without dependency on a preserved internal state within the gate or circu
 The same elementary gate or circuit can be used multiple times in the same circuit or in two or more
 distinct circuits as though each occurrence refers to a distinct gate or circuit.
 Some caution is required, because @nbr[make-circuit-maker] cannot distinguish
-elementary gates or circuits from those with internal state. @red{No warnings are issued.}
+elementary gates or circuits from those with internal state.
+No errors or warnings are issued.
 
 If the circuit procedure is called with a true value for optional keyword argument @nbr[report]
 a report is printed on the @nbr[current-output-port],
@@ -343,13 +345,41 @@ In the following example instability is detected and an exception is raised:
 (code:comment #,(tt"The following report shows the loop when input "@tt{a}" is raised to "@tt{1}":"))
 (unstable-circuit 1 #:report #t #:unstable-error 'yes)]}})
 @(reset-Interaction*)
+@(void @Interaction*[
+(define make-D-latch
+ (make-circuit-maker
+  D-latch               (code:comment "name")
+  (in clock)            (code:comment "inputs")
+  (state state-inverse) (code:comment "outputs")
+  (code:comment "Gates:")
+  (reset         (Nand      in  clock))
+  (SET           (Nand (Not in) clock))
+  (state         (Nand reset state-inverse))
+  (state-inverse (Nand   SET state))))])
+Let's check that two distinct instances of a circuit have their own internal state.@(lb)
+For this pupose we use two @nb{@elemref["D-latch"]{D-latches}}:
+@Interaction*[
+(define D-latch-0 (make-D-latch))
+(define D-latch-1 (make-D-latch))
+(define-syntax-rule (show-state D-latch)
+ (call-with-values
+  (λ () (D-latch ? 0))
+  (λ (state state-inverse)
+   (printf "(state state-inverse) of ~a is ~s.~n"
+   'D-latch (list state state-inverse)))))
+(begin
+ (D-latch-0 0 1) (code:comment "reset D-latch-0")
+ (D-latch-1 1 1) (code:comment "  set D-latch-1")
+ (show-state D-latch-0)
+ (show-state D-latch-1))]
+@(reset-Interaction*)
 @section[#:tag "Ternary logic"]{Ternary logic}
 @deftogether[
 (@defthing[F trit? #:value '0]
  @defthing[T trit? #:value '1]
  @defthing[? trit? #:value '?]
  @defthing[trits (list/c trit? trit? trit?) #:value '(0 1 ?)]
- @defthing[trit-seq sequence? #:value (in-list trits)])]{
+ @defthing[in-trits sequence? #:value (in-list trits)])]{
 @inset{@Tabular[(("variable" "value"  "description"     "predicate")
                  ((nbr F)    (nbr '0) "false, off, low" @nbr[F?])
                  ((nbr T)    (nbr '1) "true, on, high"  @nbr[T?])
@@ -373,7 +403,7 @@ The binary digits are @nbr[F]=@nbr[0] and @nbr[T]=@nbr[1].@(lb)
 @nbr[?]=@nbr['?] is not a binary digit.
 @deftogether[
  (@defthing[bits (list/c bit? bit?) #:value '(0 1)]
-  @defthing[bit-seq sequence? #:value (in-list bits)])]
+  @defthing[in-bits sequence? #:value (in-list bits)])]
 @defproc[#:kind "predicate" (bit? (obj any/c)) boolean?]{
 @nbr[#t] if the @nbr[obj] is a bit, id est @nbr[0] or @nbr[1]. Else @nbr[#f].@(lb)
 Always: @nbr[(implies (bit? obj) (trit? obj))] → @nbr[#t]:
@@ -403,9 +433,9 @@ Else yields @nbr[?].
 @nbr[And] is associative as well: a nest of @nbr[And]-forms can be replaced by one single
 @nbr[And]-form.
 @Interaction[
-(for*/and ((a trit-seq) (b trit-seq))
+(for*/and ((a in-trits) (b in-trits))
  (eq? (And a b) (And b a)))
-(for*/and ((a trit-seq) (b trit-seq) (c trit-seq))
+(for*/and ((a in-trits) (b in-trits) (c in-trits))
  (define And-a-b-c (And a b c))
  (and (eq? (And (And a b) c) And-a-b-c)
       (eq? (And a (And b c)) And-a-b-c)))]}
@@ -418,12 +448,12 @@ In other words: same as @nbr[(Not (And input ...))]
 @(inset (make-truth-table (a b) (Nand a b) #t))
 Given one argument, @nbr[Nand] does the same as @nbr[Not]:
 @Interaction[
-(for/and ((input trit-seq)) (eq? (Nand input) (Not input)))]
+(for/and ((input in-trits)) (eq? (Nand input) (Not input)))]
 @nbr[Nand] is commutative: it is invariant under permutation of its arguments.@(lb)
 @Interaction[
-(for*/and ((a trit-seq) (b trit-seq))
+(for*/and ((a in-trits) (b in-trits))
  (eq? (Nand a b) (Nand b a)))
-(for*/and ((a trit-seq) (b trit-seq) (c trit-seq))
+(for*/and ((a in-trits) (b in-trits) (c in-trits))
  (for/and ((abc (in-permutations (list a b c))))
   (eq? (Nand a b c) (apply Nand abc))))]
 @nbr[Nand] is not associative, for example:
@@ -439,9 +469,9 @@ Else yields @nbr[?].
 @nbr[Or] is associative as well: a nest of @nbr[Or]-forms can be replaced by one single
 @nbr[Or]-form.
 @Interaction[
-(for*/and ((a trit-seq) (b trit-seq))
+(for*/and ((a in-trits) (b in-trits))
  (eq? (Or a b) (Or b a)))
-(for*/and ((a trit-seq) (b trit-seq) (c trit-seq))
+(for*/and ((a in-trits) (b in-trits) (c in-trits))
  (define Or-a-b-c (Or a b c))
  (and (eq? (Or (Or a b) c) Or-a-b-c)
       (eq? (Or a (Or b c)) Or-a-b-c)))]
@@ -449,7 +479,7 @@ Else yields @nbr[?].
 Because both @nbr[And] and @nbr[Or] are commutative,@(lb)
 the distribution holds both at the right and at the left:
 @Interaction[
-(for*/and ((a trit-seq) (b trit-seq) (c trit-seq))
+(for*/and ((a in-trits) (b in-trits) (c in-trits))
  (and (eq? (And a (Or b c)) (Or (And a b) (And a c)))
       (eq? (And (Or b c) a) (Or (And b a) (And c a)))
       (eq? (Or a (And b c)) (And (Or a b) (Or a c)))
@@ -463,7 +493,7 @@ In other words: same as @nbr[(Not (Or input ...))]
 @(inset (make-truth-table (a b) (Nor a b) #t))
 @nbr[Nor] is commutative: it is invariant under permutation of its arguments.@(lb)
 @Interaction[
-(for*/and ((a trit-seq) (b trit-seq))
+(for*/and ((a in-trits) (b in-trits))
  (eq? (Nor a b) (Nor b a)))]
 @nbr[Nor] is not associative, for example:
 @Interaction[
@@ -480,9 +510,9 @@ and all other @nbr[input]s, if any, are @nbr[0].
 @nbr[Xor] is associative as well: a nest of @nbr[Xor]-forms can be replaced by one single
 @nbr[Xor]-form.
 @Interaction[
-(for*/and ((a trit-seq) (b trit-seq))
+(for*/and ((a in-trits) (b in-trits))
  (eq? (Xor a b) (Xor b a)))
-(for*/and ((a trit-seq) (b trit-seq) (c trit-seq))
+(for*/and ((a in-trits) (b in-trits) (c in-trits))
  (define Xor-a-b-c (Xor a b c))
  (and (eq? (Xor (Xor a b) c) Xor-a-b-c)
       (eq? (Xor a (Xor b c)) Xor-a-b-c)))]}
@@ -496,17 +526,17 @@ Else yields @nbr[?]. Same as:
 @(inset (make-truth-table (x y z) (Eq x y z) #f))
 @nbr[Eq] is commutative: it is invariant under permutation of its arguments.
 @Interaction[
-(for*/and ((a trit-seq) (b trit-seq))
+(for*/and ((a in-trits) (b in-trits))
  (eq? (Eq a b) (Eq b a)))
-(for*/and ((a trit-seq) (b trit-seq) (c trit-seq) (d trit-seq))
+(for*/and ((a in-trits) (b in-trits) (c in-trits) (d in-trits))
  (define Eq-abcd (Eq a b c d))
  (for/and ((abcd (in-permutations (list a b c d))))
   (eq? (apply Eq abcd) Eq-abcd)))]
 @nbr[Eq] is not associative, for example:
 @Interaction[(eq? (Eq 0 0 0) (Eq (Eq 0 0) 0))]
-When restricted to binary applications, @nbr[Eq] is associative, though:
+When restricted to two arguments, @nbr[Eq] is associative, though:
 @Interaction[
-(for*/and ((a trit-seq) (b trit-seq) (c trit-seq))
+(for*/and ((a in-trits) (b in-trits) (c in-trits))
  (eq? (Eq a (Eq b c)) (Eq (Eq a b) c)))]
 However,when applied to more than two arguments @nbr[Eq] looses its associativity.}
 @defproc[(Implies (premise trit?)(implication trit?)) trit?]{
@@ -524,7 +554,7 @@ Also the same as:
 @inset{@nbr[(Nand (Nand then else) (Nand test then) (Nand (Not test) else))]}
 Let's check this:
 @Interaction[
-(for*/and ((test trit-seq) (then trit-seq) (else trit-seq))
+(for*/and ((test in-trits) (then in-trits) (else in-trits))
  (define result (If test then else))
  (and
   (eq? result
@@ -558,7 +588,7 @@ For example:
 Syntax @nbr[truth-table] can be used for the preparation of truth-tables, of course.
 The truth-tables of the gates in section @secref{Elementary gates}
 have been prepared with help of procedure @nbr[truth-table].
-However, the procedure can produce other purposes too.
+However, the syntax can be used for other purposes too.
 The following example checks that @nbr[(Nand a b)] always equals @nbr[(Or (Not a) (Not b))]:
 @Interaction[
 (define (ok? x) (eq? (caaddr x) 'ok))
@@ -894,14 +924,13 @@ An n-bit entity interpreted as a two's complement number is confined to the rang
 @subsection{Unsigned numbers}
 The @tt{6-bit-adder} and @tt{12-bit-adder} can be used for unsigned numbers too.
 In that case the carry-out bit being @nbr[1] indicates overflow and the overflow bit can be ignored.
-@subsection{Master-slave flip-flop}
-@note{The name ‘master-slave-flip-flop’ is not a happy one.
-I have considered to use another name,
-but when googling it, you find many hits, but none of which is the one you are looking for.
-Therefore I use the traditional name,
-but be assured that for me too black lives matter!}
-There are several ways to construct a master-slave flip-flop.@(lb)
-Below two JK-latches are used. Hence we first define a JK-latch maker:
+@subsection{Predecessor-successor flip-flop}
+@note{Uually called a ‘master-slave flip-flop’ but this is not a happy name.@(lb)
+Therefore I use another name, but when googling, use the original name.}
+There are several ways to construct a predecessor-successor flip-flop.@(lb)
+Below two @nb{JK-latches} are used. Hence we first define a JK-latch maker.@(lb)
+Its diagram looks pretty much like that of a @elemref["D-latch"]{D-latch}.@(lb)
+You may want to draw the diagram according to the following definition:@(lb)
 @;@image["JK-latch.gif" #:scale 0.5]
 @Interaction*[
 (define make-JK-latch
@@ -926,24 +955,25 @@ The state transition table for a JK-latch after a @nbr[1]-pulse on the @tt{clock
  #:column-properties '(()()()() center center left)
  #:sep (hspace 2)]}
 Because a JK-latch has preserved internal state, we need two distinct instances
-in the master-slave flip-flop, one for the master and one for the slave:
+in the predecessor-successor flip-flop, one for the predecessor and one for the successor:
 @Interaction*[
-(define make-master-slave-flip-flop
- (let ((master (make-JK-latch))
-       (slave  (make-JK-latch)))
-  (make-circuit-maker master-slave-flip-flop
+(define make-predecessor-successor-flip-flop
+ (let ((predecessor (make-JK-latch))
+       (successor   (make-JK-latch)))
+  (make-circuit-maker predecessor-successor-flip-flop
    (J K clock) (code:comment "inputs")
    (P Q)       (code:comment "outputs")
    (code:comment "The two JK-latchs:")
-   ((SET reset) (master (And J (Nand K P))
-                        (And K (Nand J Q)) clock))
-   ((P Q) (slave SET reset (Not clock))))))
+   ((SET reset) (predecessor (And J (Nand K P))
+                             (And K (Nand J Q)) clock))
+   ((P Q) (successor SET reset (Not clock))))))
 (code:comment " ")
-(define master-slave-flip-flop (make-master-slave-flip-flop))]
+(define predecessor-successor-flip-flop
+ (make-predecessor-successor-flip-flop))]
 @tt{P} and @tt{Q} always are inverses of each other.
-They are the state and inverted state of the master-slave flip-flop.
-The state transition table for the master-slave flip-flop after a @nbr[1]-pulse on the @tt{clock}
-is as follows:
+They are the state and inverted state of the predecessor-successor flip-flop.
+The state transition table for the predecessor-successor flip-flop after a @nbr[1]-pulse on the
+@tt{clock} is as follows:
 @inset{@Tabular[
 (((tt "J") (tt "K") (tt "P") (tt "Q") (list "new "(tt "P")) (list "new "(tt "Q")) "Action")
  ((tt "0") (tt "0") (tt "P") (tt "Q") (tt "P") (tt "Q") "No change")
@@ -953,28 +983,30 @@ is as follows:
  #:row-properties '((top-border bottom-border) () () () bottom-border)
  #:column-properties '(()()()() 'center 'center 'left)
  #:sep (hspace 2)]}
-In order to clock the master-slave flip-flop we need two calls,
-one with @tt{clock=1} to set or reset or flip the master or to leave it as it is and
-one call with @tt{clock=0} in order to copy the state of the master into the slave.
-@tt{clock=1} may change the master but leaves the slave unaffected.
-@tt{clock=0} leaves the master unaffected and
-copies the state of the master into the slave.
+In order to clock the predecessor-successor flip-flop we need two calls,
+one with @tt{clock=1} to set or reset or flip the predecessor or to leave it as it is and
+one call with @tt{clock=0} in order to copy the state of the predecessor into the successor.
+@tt{clock=1} may change the predecessor but leaves the successor unaffected.
+@tt{clock=0} leaves the predecessor unaffected and
+copies the state of the predecessor into the successor.
 When @tt{clock=0}, @tt{J} and @tt{K} are irrelevant and we take @tt{J=K=?}.
 @Interaction*[
-(define (clock-the-master-slave-flip-flop J K)
- (master-slave-flip-flop J K 1)
- (master-slave-flip-flop ? ? 0))]
-Let's test clocking the master-slave flip-flop for all combinations of old state @tt{(P Q)}@(lb)
-and the inputs @tt{J} and @tt{K}:
+(define (clock-the-predecessor-successor-flip-flop J K)
+ (predecessor-successor-flip-flop J K 1)
+ (predecessor-successor-flip-flop ? ? 0))]
+Let's test clocking the predecessor-successor flip-flop for all combinations of
+old state @nb{@tt{(P Q)}} and the inputs @tt{J} and @tt{K}:
 @Interaction*[
 (define table
- (for*/list ((P bit-seq) (K bit-seq) (J bit-seq))
+ (for*/list ((P in-bits) (K in-bits) (J in-bits))
   (define Q (Not P))
   (code:comment "Put the flip-flop in state (P Q) and check it's done right.")
-  (define-values (old-P old-Q) (clock-the-master-slave-flip-flop P Q))
+  (define-values (old-P old-Q)
+   (clock-the-predecessor-successor-flip-flop P Q))
   (unless (and (= old-P P) (= old-Q Q)) (error "test fails"))
   (code:comment "Clock the flip-flop with J and K.")
-  (define-values (new-P new-Q) (clock-the-master-slave-flip-flop J K))
+  (define-values (new-P new-Q)
+   (clock-the-predecessor-successor-flip-flop J K))
   (code:comment "Check:")
   (case (list J K)
    (((0 0)) (equal? (list new-P new-Q) (list old-P old-Q)))
