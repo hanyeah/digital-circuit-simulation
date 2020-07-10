@@ -12,9 +12,9 @@
  F
  T
  trits
- trit-seq
+ in-trits
  bits
- bit-seq
+ in-bits
  Not
  And
  Or
@@ -63,12 +63,12 @@
 (define (?? x) (eq? x ?))
 (define (trit? p) (or (eq? p 0) (eq? p 1) (eq? p ?)))
 (define trits '(0 1 ?))
-(define trit-seq (in-list trits))
+(define in-trits (in-list trits))
 
 ; Binary logic.
 (define (bit? p) (or (eq? p 0) (eq? p 1))) 
 (define bits '(0 1))
-(define bit-seq (in-list bits))
+(define in-bits (in-list bits))
 
 ;=====================================================================================================
 ; Central part of the code
@@ -94,7 +94,7 @@
       (circuit 'name
        (let ((saved-gate-output ?) ... ... (active (make-parameter #f)))
         (λ (input ... #:report (report #f) #:unstable-error (unstable-error #t))
-         (when (active) (error 'name "direct or indirect recursive call"))
+         (when (active) (error 'name "direct or indirect recursive call prohibited"))
          (parameterize ((active #t))
           (unless (trit? input)
            (error 'name "input ~s must be a trit, given: ~s" 'input input))...
@@ -155,8 +155,8 @@
                 (when report
                  (printf "~nFinal state:~n")
                  (printf "~s = ~s~n" 'gate-output gate-output) ... ...
-                 (when (and report (member ? (list output ...)))
-                  (printf "~nWARNING: some outputs are not well defined.~n"))
+                 (when (member ? (list output ...))
+                  (printf "~nWARNING: one or more indeterminate outputs.~n"))
                  (printf "~nEnd of report of circuit ~s.~n~n" 'name))
                 (set! history '())
                 (values output ...))
@@ -166,16 +166,11 @@
                  (cons (list gate-output ... ...) history)
                  new-gate-output ... ...)))))))))))))))))
 
-(define (check-name name)
- (unless (or (symbol? name) (not name))
-  (raise-argument-error 'make-circuit-maker "symbol?" name))
- name)
-
 (define-for-syntax (check-make-circuit-maker-form stx)
  (syntax-case stx ()
   ((name (input ...) (output ...) ((gate-output ...) gate-expr) ...)
    (unless (identifier? #'name)
-    (raise-syntax-error 'make-circuit-maker "identifier exprected" #'name))
+    (raise-syntax-error 'make-circuit-maker "identifier expected" stx #'name))
    (check-circuit-form-helper stx
     (syntax->list #'(input ...))
     (syntax->list #'(output ...))
@@ -272,7 +267,7 @@
  (syntax-case stx ()
   ((_ (id ...) expr)
    (check #'(id ...))
- #'(for*/list ((id trit-seq) ...)
+ #'(for*/list ((id in-trits) ...)
     (list id ... (call-with-values (λ () expr) list))))
   ((_ (id ...) expr #:omit-?)
    (check #'(id ...))
