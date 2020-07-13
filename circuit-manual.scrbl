@@ -118,7 +118,7 @@ Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} v
   (code:comment "Check the results.")
   (unless 
    (and
-    (eq? new-state (If clock in state))
+    (eq? new-state (If clock in old-state))
     (eq? new-state-inverse (Not new-state)))
    (error "test fails"))
   (code:comment "Add a line with all details to the table.")
@@ -727,7 +727,7 @@ For testing we need procedures for the conversion of
 (code:comment "Test n->6b and 6b->n.")
 (code:comment " ")
 (for/and ((n (in-range -32 +32))) (= (6b->n (n->6b n)) n))]
-Procedure @tt{do-example} takes two exact integer numbers @tt{x} and @tt{y} in the range
+Procedure @tt{run-example} takes two exact integer numbers @tt{x} and @tt{y} in the range
 @nbr[-32] included to @nbr[+32] excluded and computes the sum with the @tt{6-bit-adder}.
 It returns seven values:
 @inset{@Tabular[
@@ -870,6 +870,9 @@ The overflow bit of the lower 6-bit-adder can be ignored.
 Detection of overflow: 2000 + 100 ≥ 2@↑{11}.
 An n-bit entity interpreted as a two's complement number is confined to the range from
 @larger{@tt{-}}2@↑{n-1} inclusive to 2@↑{n-1} exclusive.
+@nb{For 12 bit} two's complement numbers
+this means from @larger{@tt{-}}@tt{2048} inclusive to @tt{2048} exclusive.
+Hence 2000+100 must yield overflow:
 @Interaction*[
 (define a 2000)
 (define b 100)
@@ -896,6 +899,9 @@ An n-bit entity interpreted as a two's complement number is confined to the rang
 The @tt{6-bit-adder} and @tt{12-bit-adder} can be used for unsigned numbers too.
 In that case the carry-out bit being @nbr[1] indicates overflow and the overflow bit can be ignored.
 @subsection{Master-slave flip-flop}
+@note{The name “master-slave flip-flop” is not a happy one.
+I have considered to use another name,@(lb)
+but for the reader this would complicate searching the world wide web for more information.}
 There are several ways to construct a @nb{master-slave} flip-flop.@(lb)
 Below two @nb{JK-latches} are used. Hence we first define a JK-latch maker.@(lb)
 Its diagram looks pretty much like that of a @elemref["D-latch"]{D-latch}.@(lb)
