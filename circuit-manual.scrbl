@@ -5,9 +5,9 @@
   scribble/core
   "digital-circuits.rkt"
   "scribble-utensils.rkt"
-  (for-label "digital-circuits.rkt" racket racket/block)
-  (for-template "digital-circuits.rkt" racket)
-  (for-syntax racket)) 
+  (for-label "digital-circuits.rkt" (except-in racket set) racket/block)
+  (for-template "digital-circuits.rkt" (except-in racket set))
+  (for-syntax (except-in racket set)))
 @title[#:version ""]{Digital circuits}
 @author{Jacob J. A. Koot}
 @(defmodule "digital-circuits.rkt" #:packages ())
@@ -32,8 +32,7 @@ Let n be the number of all wires in a circuit.
 The circuit cannot assume more than 3@↑{n} distinct ternary digital states, usually much less.
 @nbr[F] and @nbr[T] are no
 @seclink["booleans" #:doc '(lib "scribblings/reference/reference.scrbl")]{booleans}
-in the sense of predicate @nbr[boolean?], id est
-@nbr[(boolean? F)] → @nbr[#f] and @nbr[(boolean? T)] → @nbr[#f].
+in the sense of predicate @nbr[boolean?].
 Use predicates @nbr[bit?] and @nbr[trit?] in stead.
 
 @elemtag{D-latch}
@@ -42,18 +41,18 @@ It has two inputs, which will be called ‘@tt{in}’ and ‘@tt{clock}’.@(lb)
 It has two outputs, which will be called ‘@tt{state}’ and ‘@nb{@tt{state-inverse}}’.@(lb)
 The outputs are preserved as internal state as well.@(lb)
 They always are inverses of each other.@(lb)
-After switching the inputs the new @tt{state}
-can depend on the previous @tt{state} too.@(lb)
+After switching the inputs, the new @tt{state}
+can depend on the previous @tt{state}.@(lb)
 The following transition table applies:
 @inset{@Tabular[
-(((tt "in")
-  (tt "clock")
+(((tt "clock")
+  (tt "in")
   (list "old" (hspace 1) (tt "state"))
   (list "new" (hspace 1) (tt "state"))
   "action")
- ("any"     (tt "0") (tt "state") (tt "state") "state preserved")
- ((tt "0" ) (tt "1") "any"        (tt "0")     "reset")
- ((tt "1" ) (tt "1") "any"        (tt "1")     "set"))
+ ((tt "1") (tt "0" ) "any"        (tt "0")     "reset")
+ ((tt "1") (tt "1" ) "any"        (tt "1")     "set")
+ ((tt "0") "any"     (tt "state") (tt "state") "state preserved"))
  #:row-properties '((top-border bottom-border) () () bottom-border)
  #:column-properties '(center center center center left)
  #:sep (hspace 2)]}
@@ -74,34 +73,56 @@ can be made by straightforwardly listing the elements of the diagram:
   (state state-inverse) (code:comment "outputs")
   (code:comment "Gates:")
   (reset         (Nand in    clock))
-  (SET           (Nand reset clock))
+  (set           (Nand reset clock))
   (state         (Nand reset state-inverse))
-  (state-inverse (Nand SET   state))))]
-In fact syntax @nbr[make-circuit-maker] produces a thunk, called a ‘circuit maker’,
-that returns a procedure for the simulation, called a ‘circuit procedure’.
+  (state-inverse (Nand set   state))))]
+In fact syntax @nbr[make-circuit-maker] produces a thunk, called a ‘circuit maker’.
+The latter returns a procedure for the simulation, called a ‘circuit procedure’.
 We must call the circuit maker in order to make an instance of the circuit procedure proper.
 In section @secref["mcm"] we shall see why the circuit procedure is not returned immediately.
 @Interaction*[(define D-latch (make-D-latch))]
 Procedure @tt{D-latch} accepts the two arguments @tt{in} and @tt{clock}
 and returns the two values @tt{state} and @tt{state-inverse}.
 Via the wires @tt{state} and @tt{state-inverse} the @tt{state} is fed back to itself
-via the two @nbr[Nand]-gates at the right in the diagram.
+via the two @nbr[Nand]-gates at the right in the diagram,
+cq the last two lines in the above definition of @tt{make-D-latch}.
 When the @tt{clock} is @nbr[0], both @tt{set} and @tt{reset} raise to @nbr[1]
-(as far as not already @nbr[1])
+@nb{(as far as not already @nbr[1])}
 and the two @nbr[Nand]-gates act as a loop of two inverters for
 the signals @tt{state} and @tt{state-inverse}.
-@note{When power is switched on, the D-latch must be reset or set with a @nbr[1]-pulse on the
+
+The first call to a circuit procedure corresponds to switching power on.
+During power on, the @nb{@tt{D-latch}} must be reset or set with a @nbr[1]-pulse on the
 @tt{clock} and @tt{in} hold at @nbr[0] or @nbr[1].
 This is necessary in order to stabilize the @tt{state} and @tt{state-inverse}.
 Otherwise they may vibrate for a while,
 both simultaneously receiving the same signal and simultaneously sending the same inverted signal,
 which means that they simultaneously remain switching.
 Once stable, the @tt{state} and @tt{state-inverse} are inverses of each other
-and remain as they are after the @tt{clock} falls down from @nb{@nbr[1] to @nbr[0]}.}
+and remain as they are after the @tt{clock} falls down from @nb{@nbr[1] to @nbr[0]}.
+A circuit procedure is protected such as never to vibrate more than one cycle.
+Outputs may be indeterminate or a warning may be issued or an exception may be raised
+depending on the @elemref["circuit procedure"]{circuit procedure} itself and on how it is called.
+@(define Dlatchcomment (list "When the "
+                               @tt{@black{clock}}
+                               " is "@nbr[0]
+                               ", "
+                               @tt{@black{in}}
+                               " is irrelevant."))
+@Interaction*[
+(parameterize ((start-signal 0))
+ (define D-latch (make-D-latch))
+ (D-latch 0 0 #:report #t))]
+Therefore we'd better initialize the D-latch as follows.
+@Interaction*[
+(D-latch 0 1 #:report #t)
+(code:comment #,(list "Now we can safely drop the " @tt{@black{clock}} " to " @nbr[0] ":"))
+(code:comment #,Dlatchcomment)
+(D-latch ? 0 #:report #t)]
 Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} values for
 @tt{in}, @tt{clock} and @nb{old @tt{state}:}
 @(define D-latch-comment
-  (list "Send signals " @black{@tt{in}} " and " @black{@tt{clock}} " to the D-latch and check."))
+  (list "Send signals " @black{@tt{in}} " and " @black{@tt{clock}} " to the D-latch."))
 @Interaction*[
 (define (test/make-table) (code:comment "Does tests and gathers info in a table.")
  (for*/list ((state in-bits) (clock in-bits) (in in-bits))
@@ -121,36 +142,37 @@ Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} v
     (eq? new-state (If clock in old-state))
     (eq? new-state-inverse (Not new-state)))
    (error "test fails"))
-  (code:comment "Add a line with all details to the table.")
+  (code:comment "Add a row with all details to the table.")
   (list in clock old-state new-state
    (cond (code:comment "Description of the action.")
     ((= clock 0) "preserve state")
     ((= in 0)
      (if (= in old-state)
-      "reset (was already reset)"
+      "reset (already was reset)"
       "reset"))
     ((= in 1)
      (if (= in old-state)
-      "set (was already set)"
+      "set (already was set)"
       "set"))))))
 (code:comment " ")
 (define (do-test-and-print-table)
+ (code:comment "The test proper.")
+ (define table (test/make-table))
  (code:comment "We print the details in a table.")
  (code:comment "First the header of the table.")
  (printf " ~n")
- (define line (string-append (make-string 58 #\─) "\n"))
- (printf line)
+ (define border (string-append (make-string 58 #\─) "~n"))
+ (printf border)
  (printf "in  clock  old-state  new-state  action~n")
- (printf line)
- (code:comment "The test proper.")
- (define table (test/make-table))
- (code:comment "Print the results.")
- (for ((line (in-list table)))
-  (apply printf " ~s    ~s        ~s          ~s      ~a~n" line))
+ (printf border)
+ (code:comment "Print the table proper.")
+ (for ((row (in-list table)))
+  (apply printf " ~s    ~s        ~s          ~s      ~a~n" row))
  (code:comment "Close the table.")
- (printf line)
+ (printf border)
  (code:comment "Arriving here means that all went well.")
- (printf "Hurray, test passed.~n"))
+ (printf "Hurray, test passed.~n")
+ (printf border))
 (code:comment " ")
 (do-test-and-print-table)]
 @(reset-Interaction*)
@@ -242,40 +264,44 @@ A @nbr[gate-expr] cannot make assignments to @nbr[input]s, @nbr[output]s, or @nb
 (make-circuit-maker wrong-circuit
  () () (var (set!-values (var) "will not be accepted")))]
 @note{In DrRacket the @nbr[var] is highlighted with red background and the message ends with:
-“@tt{in: @red{var}}”.}
+@nb{“@tt{in: @red{var}}”.}}
 A @nbr[gate] is not required to have outputs.
 Such a @nbr[gate] can be used for inclusion of checks and for printed output
 as a probe on some or all wires:
 @Interaction[
 (define make-probed-circuit
  (let ((n 0))
-  (make-circuit-maker probed-circuit () ()
-   (a 1)
+  (make-circuit-maker probed-circuit (a) (c)
    (b (Not a))
    (c (Not b))
    (() (code:comment "probe:")
     (begin
-     (printf "Step ~s: a=~s, b=~s, c=~s.~n" n a b c)
      (set! n (add1 n))
      (code:comment #,cmnt)
+     (printf "Step ~s: a=~s, b=~s, c=~s.~n" n a b c)
      (code:comment #,(list @nbr[set!] " returns " @(Void) ", but we must not return any value."))
      (code:comment "Therefore we finish with:")
      (values))))))
 (define probed-circuit (make-probed-circuit))
-(probed-circuit)]
+(probed-circuit 0)]
 The probe shows how the signal travels through the circuit from @tt{a} via @tt{b} to @tt{c}.
-Notice that the @nbr[gate-expr] of the probe is evaluated four times,
+Notice that the @nbr[gate-expr] of the probe is evaluated three times,
 as many times as needed to obtain a stable state.
 After step 3 the circuit procedure detects a stable state and terminates by returning its
-@nbr[output]s (none in this example).
+@nbr[output] @tt{c}.
 @defproc[#:kind "predicate" (circuit-maker? (obj any/c)) boolean?]{
 Predicate for thunks made by syntax @nbr[make-circuit-maker].}
 @defproc[#:kind "predicate" (circuit? (obj any/c)) boolean?]{
 Predicate for circuit procedures made by a @nbrl[circuit-maker?]{circuit maker}.}
+@defparam[start-signal signal trit? #:value ?]{
+Parameter that determines the initial signals in the internal state when a circuit procedure
+is made by a @nbrl[circuit-maker?]{circuit maker}.}
+
 @elemtag{circuit procedure}
 @section{Circuit procedures}
 @defproc[(circuit (#:report report any/c #f)
                   (#:unstable-error unstable-error any/c #t)
+                  (#:indeterminate-error indeterminate-error #f)
                   (input trit?) ...) (values trit? ...)]{
 @element["RktSymDef RktSym"]{circuit}
 is supposed to be a @racketlink[circuit?]{circuit procedure}
@@ -286,8 +312,11 @@ As many @nbr[input]s must be supplied as were given to @racket[make-circuit-make
 The circuit procedure returns a multiple value corresponding to the @racket[output]s
 given to @racket[make-circuit-maker].
 The combination of all @racket[gate-output]s is preserved as the internal state of the circuit.
-Initially, id est before the circuit procedure is called for the first time,
-all @racket[gate-output]s are @racket[?], id est indeterminate.
+When a circuit procedure is made by a circuit maker,
+all @racket[gate-output]s are initialized with the current value of parameter @nbr[start-signal]
+(which may differ from the value this parameter had
+when the circuit maker was made by @nbr[make-circuit-maker])
+The predefined value for this parameter is @racket[?], id est indeterminate.
 The circuit procedure makes steps as follows:
 all @racket[gate-expr]s are evaluated.
 @nb{Each @racket[gate-expr]} must yield as many values
@@ -325,7 +354,13 @@ Some caution is required, because @nbr[make-circuit-maker] cannot distinguish
 elementary gates or circuits from those with internal state.
 No errors or warnings are issued.
 
-If the circuit procedure is called with a true value for optional keyword argument @nbr[report]
+If @nbr[indeterminate-error] has a true value and one or more @nbr[output]s are
+indeterminate, an exception is raised:
+@Interaction[
+(((make-circuit-maker indeterminate-circuit () (a b) (a 0) (b ?)))
+ #:indeterminate-error #t)]
+
+If the circuit procedure is called with a true value for argument @nbr[report]
 a report is printed on the @nbr[current-output-port],
 showing mutations of the internal state after each step.
 It is allowed to ask for a report of a circuit procedure called by a @nbr[gate-expr] within
@@ -355,7 +390,7 @@ In the following example instability is detected and an exception is raised:
  @defthing[#:kind "constant" ? trit? #:value '?]
  @defthing[#:kind "constant" trits (list/c trit? trit? trit?) #:value '(0 1 ?)]
  @defthing[#:kind "constant" in-trits sequence? #:value (in-list trits)])]{
-@inset{@Tabular[(("variable" "value"  "description"     "predicate")
+@inset{@Tabular[(("name" "value"  "description"     "predicate")
                  ((nbr F)    (nbr '0) "false, off, low" @nbr[F?])
                  ((nbr T)    (nbr '1) "true, on, high"  @nbr[T?])
                  ((nbr ?)    (nbr '?) "indeterminate"   @nbr[??]))
@@ -389,7 +424,24 @@ Always: @nbr[(implies (bit? obj) (trit? obj))] → @nbr[#t]:
 All gates described in this section are elementary, id est they have no preserved internal state and
 their outputs are fully determined by their inputs.
 The same instance of an elementary gate-procedure can be used everywhere in all circuit procedures
-as though a distinct instance everywhere where it appears.
+as though a distinct instance everywhere.
+@elemtag{generalized-associativity}
+Where applicable a note is added about commutativity and associativity.
+In this document these two concepts are generalized to functions that can accept more than two
+arguments.
+Such a function will be said to be commutative if it is invariant
+under permutation of its arguments.
+It will be said to be associative if a nested application
+can be replaced by one single application.
+For example, @nbr[And] is associative in generalized sense. Therefore:
+@inset{@nbr[(And (And a b) (And c d))]}
+can be written as:
+@inset{@nbr[(And a b c d)]}
+This excludes the distinction between left and right associativity,
+but this distinction will not be needed.
+A function that is associative when restricted
+to application to two arguments may loose its associativity when applied to more arguments.
+For example see procedure @nbr[Eq].
 @defproc[(Not (input trit?)) trit?]{
 @ignore{
 @nbr[(Not 0)] yields @nbr[1].@(lb)
@@ -409,9 +461,9 @@ Else yields @nbr[?].
 (for*/and ((a in-trits) (b in-trits))
  (eq? (And a b) (And b a)))
 (for*/and ((a in-trits) (b in-trits) (c in-trits))
- (define And-a-b-c (And a b c))
- (and (eq? (And (And a b) c) And-a-b-c)
-      (eq? (And a (And b c)) And-a-b-c)))]}
+ (define And-abc (And a b c))
+ (and (eq? (And (And a b) c) And-abc)
+      (eq? (And a (And b c)) And-abc)))]}
 @defproc[(Nand (input trit?) ...) trit?]{
 Yields @nbr[0] when called without @nbr[input]s.@(lb)
 Yields @nbr[1] when at least one @nbr[input] is @nbr[0].@(lb)
@@ -445,9 +497,9 @@ Else yields @nbr[?].
 (for*/and ((a in-trits) (b in-trits))
  (eq? (Or a b) (Or b a)))
 (for*/and ((a in-trits) (b in-trits) (c in-trits))
- (define Or-a-b-c (Or a b c))
- (and (eq? (Or (Or a b) c) Or-a-b-c)
-      (eq? (Or a (Or b c)) Or-a-b-c)))]
+ (define Or-abc (Or a b c))
+ (and (eq? (Or (Or a b) c) Or-abc)
+      (eq? (Or a (Or b c)) Or-abc)))]
 @nbr[And] and @nbr[Or] are distributative for each other.@(lb)
 Because both @nbr[And] and @nbr[Or] are commutative,@(lb)
 the distribution holds both at the right and at the left:
@@ -486,9 +538,9 @@ and all other @nbr[input]s, if any, are @nbr[0].
 (for*/and ((a in-trits) (b in-trits))
  (eq? (Xor a b) (Xor b a)))
 (for*/and ((a in-trits) (b in-trits) (c in-trits))
- (define Xor-a-b-c (Xor a b c))
- (and (eq? (Xor (Xor a b) c) Xor-a-b-c)
-      (eq? (Xor a (Xor b c)) Xor-a-b-c)))]}
+ (define Xor-abc (Xor a b c))
+ (and (eq? (Xor (Xor a b) c) Xor-abc)
+      (eq? (Xor a (Xor b c)) Xor-abc)))]}
 @defproc[(Eq (p trit?) ...) trit?]{
 Yields @nbr[1] when called without arguments.@(lb)
 Yields @nbr[1] if all arguments are @nbr[0] or all are @nbr[1].@(lb)
@@ -505,16 +557,21 @@ Else yields @nbr[?]. Same as:
  (define Eq-abcd (Eq a b c d))
  (for/and ((abcd (in-permutations (list a b c d))))
   (eq? (apply Eq abcd) Eq-abcd)))]
-@nbr[Eq] is not associative, for example:
+@nbr[Eq] is not associative in @elemref["generalized-associativity"]{generalized sense}, for example:
 @Interaction[(eq? (Eq 0 0 0) (Eq (Eq 0 0) 0))]
 When restricted to two arguments, @nbr[Eq] is associative, though:
 @Interaction[
 (for*/and ((a in-trits) (b in-trits) (c in-trits))
- (eq? (Eq a (Eq b c)) (Eq (Eq a b) c)))]
-However,when applied to more than two arguments @nbr[Eq] looses its associativity.}
+ (eq? (Eq (Eq a b) c) (Eq a (Eq b c))))]
+However, when applied to more than two arguments @nbr[Eq] looses its associativity.}
 @defproc[(Implies (premise trit?)(implication trit?)) trit?]{
 Same as: @nbr[(Or (Not premise) implication)].
-@(inset (make-truth-table (premise implication) (Implies premise implication) #t))}
+@(inset (make-truth-table (premise implication) (Implies premise implication) #t))
+@nbr[Implies] is not commutative nor associative:
+@Interaction[
+(eq? (Implies 0 1) (Implies 1 0))]
+@Interaction[
+(eq? (Implies (Implies 0 1) 0) (Implies 0 (Implies 1 0)))]}
 @defproc[(If (test trit?) (then trit?) (else trit?)) trit?]{
 If @nbr[then] and @nbr[else] are the same, their value is returned.@(lb)
 Else if @nbr[test] is @nbr[T], @nbr[then] is returned.@(lb)
@@ -540,7 +597,7 @@ Let's check this:
          #:grammar ((maybe-omit-? (code:line) #:omit-?))]{
 The @nbr[id]s are bound within the @nbr[expr].
 The list of @nbr[id]s must not contain duplicates.
-Keyword @nbr[#:omit-?] may appear before, among or after the other fields of the form,
+Keyword @nbr[#:omit-?] may appear before, between or after the other two fields of the form,
 but must not appear more than once.
 Let n be the number @nb{of @nbr[id]s.}
 If keyword @nbr[#:omit-?] is absent the @nbr[expr] is evaluated 3@↑{n} times,
@@ -600,9 +657,9 @@ defined in the @secref{Introduction}.
   (state state-inverse) (code:comment "outputs")
   (code:comment "Gates:")
   (reset         (Nand      in  clock))
-  (SET           (Nand (Not in) clock))
+  (set           (Nand (Not in) clock))
   (state         (Nand reset state-inverse))
-  (state-inverse (Nand   SET state))))])
+  (state-inverse (Nand   set state))))])
 @Interaction*[
 (define D-latch (make-D-latch))
 (run-circuit D-latch
@@ -615,11 +672,11 @@ but can be used for arbitrary procedures, for example:
 (run-circuit
  (λ (in clock)
   (define-values (new-state new-state-inverse) (D-latch in clock))
-  (define line
+  (define row
    (format "in=~s clock=~s state=~s -> state=~s"
     in clock old-state new-state))
   (set! old-state new-state)
-  line)
+  row)
 '((0 1) (? 0) (1 1) (? 0) (? 1) (0 1) (? 0) (1 ?)))]}
 @(reset-Interaction*)
 @section[#:tag "Elaborated examples"]{Elaborated examples}
@@ -648,49 +705,55 @@ The 6-bit adder:
  '((top-border bottom-border) () () ()
    (top-border bottom-border) () () 'bottom-border)]}
 @Interaction*[
-(define 6-bit-adder
- ((make-circuit-maker 6-bit-adder
-   (code:comment "Inputs:")
-   (    c0 a5 a4 a3 a2 a1 a0
-           b5 b4 b3 b2 b1 b0)
-   (code:comment "Outputs:")
-   (ov c6 s5 s4 s3 s2 s1 s0)
-   (code:comment "Gates:")
-   ((s0 c1) (full-adder a0 b0 c0))
-   ((s1 c2) (full-adder a1 b1 c1))
-   ((s2 c3) (full-adder a2 b2 c2))
-   ((s3 c4) (full-adder a3 b3 c3))
-   ((s4 c5) (full-adder a4 b4 c4))
-   ((s5 c6) (full-adder a5 b5 c5))
-   (ov (Xor c5 c6)))))
+(define make-6-bit-adder
+ (make-circuit-maker 6-bit-adder
+  (code:comment "Inputs:")
+  (    c0 a5 a4 a3 a2 a1 a0
+          b5 b4 b3 b2 b1 b0)
+  (code:comment "Outputs:")
+  (ov c6 s5 s4 s3 s2 s1 s0)
+  (code:comment "Gates:")
+  ((s0 c1) (full-adder a0 b0 c0))
+  ((s1 c2) (full-adder a1 b1 c1))
+  ((s2 c3) (full-adder a2 b2 c2))
+  ((s3 c4) (full-adder a3 b3 c3))
+  ((s4 c5) (full-adder a4 b4 c4))
+  ((s5 c6) (full-adder a5 b5 c5))
+  (ov (Xor c5 c6))))
+(code:comment " ")
+(define 6-bit-adder (make-6-bit-adder))
 (code:comment " ")
 (code:comment "The full-adder and half-adder compute")
 (code:comment "the sum and carry of 1 bit numbers.")
 (code:comment " ")
-(define full-adder
+(define make-full-adder
  (code:comment "bit bit carry -> bit carry")
- ((make-circuit-maker full-adder
-   (code:comment "Inputs:")
-   (a b carry-in)
-   (code:comment "Outputs:")
-   (sum carry-out)
-   (code:comment "Gates:")
-   ((half-sum half-carry-1) (half-adder a b))
-   ((     sum half-carry-2) (half-adder carry-in half-sum))
-   ((carry-out) (Or half-carry-1 half-carry-2)))))
+ (make-circuit-maker full-adder
+  (code:comment "Inputs:")
+  (a b carry-in)
+  (code:comment "Outputs:")
+  (sum carry-out)
+  (code:comment "Gates:")
+  ((half-sum half-carry-1) (half-adder a b))
+  ((     sum half-carry-2) (half-adder carry-in half-sum))
+  ((carry-out) (Or half-carry-1 half-carry-2))))
 (code:comment " ")
-(define half-adder
+(define full-adder (make-full-adder))
+(code:comment " ")
+(define make-half-adder
  (code:comment "bit bit -> bit carry")
- ((make-circuit-maker half-adder
-   (a b)       (code:comment "inputs")
-   (sum carry) (code:comment "outputs")
-   (code:comment "gates")
-   (sum   (Xor a b))
-   (carry (And a b)))))]
-Because the outputs of procedure @tt{full-adder} do not depend on internal state,
-@nb{we can} use the same instance six times in procedure @tt{6-bit-adder}.
-In a real life circuit, @nb{six distinct} instances are required, of course.
-The same holds for the two uses of @nb{@tt{half-adder}} in @nb{@tt{full-adder}}.
+ (make-circuit-maker half-adder
+  (a b)       (code:comment "inputs")
+  (sum carry) (code:comment "outputs")
+  (code:comment "gates")
+  (sum   (Xor a b))
+  (carry (And a b))))
+(code:comment " ")
+(define half-adder (make-half-adder))]
+Because the outputs of procedure @nb{@tt{half-adder}} do not depend on internal state,
+@nb{we can} use the same instance two times in procedure @nb{@tt{full-adder}}.
+In a real life circuit, @nb{two distinct} instances are required, of course.
+The same holds for the six uses of @nb{@tt{full-adder}} in @nb{@tt{6-bit-adder}}.
 In the following two tables the right column shows @nb{@tt{(sum carry)}} cq @nb{@tt{(sum carry-out)}}:
 @(define half-adder ((make-circuit-maker half-adder
                       (a b) (sum carry)
@@ -705,7 +768,15 @@ In the following two tables the right column shows @nb{@tt{(sum carry)}} cq @nb{
    ((carry-out) (Or half-carry-1 half-carry-2)))))
 @(inset{make-truth-table (a b) (half-adder a b) #f})
 @(inset{make-truth-table (a b carry-in) (full-adder a b carry-in) #f})
-For testing we need procedures for the conversion of
+@ignore{Let's see an example of how the signals flow through the adder:
+@Interaction*[
+(begin
+ (6-bit-adder 0 (code:comment "carry-in")
+              0 0 1 0 1 1 (code:comment "operand a")
+              0 0 1 0 0 1 (code:comment "operand b")
+              #:report #t)
+ (void))]}
+For testing the 6-bit-adder we need procedures for the conversion of
 @nbrl[exact-nonnegative-integer?]{exact natural numbers} to lists of bits.
 @Interaction*[
 (define bitmasks (reverse '(1 2 4 8 16 32)))
@@ -726,18 +797,27 @@ For testing we need procedures for the conversion of
 (code:comment " ")
 (code:comment "Test n->6b and 6b->n.")
 (code:comment " ")
-(for/and ((n (in-range -32 +32))) (= (6b->n (n->6b n)) n))]
+(for/and ((n (in-range -32 +32))) (= (6b->n (n->6b n)) n))
+(for*/and
+ ((b0 in-bits)
+  (b1 in-bits)
+  (b2 in-bits)
+  (b3 in-bits)
+  (b4 in-bits)
+  (b5 in-bits))
+ (define b (list b0 b1 b2 b3 b4 b5))
+ (equal? (n->6b (6b->n b)) b))]
 Procedure @tt{run-example} takes two exact integer numbers @tt{x} and @tt{y} in the range
 @nbr[-32] included to @nbr[+32] excluded and computes the sum with the @tt{6-bit-adder}.
 It returns seven values:
 @inset{@Tabular[
- (("•" @tt{x} " ")
-  ("•" @tt{y} " ")
-  ("•" @tt{x+y} (list "as computed by the " @tt{6-bit-adder}))
-  ("•" @tt{x} "as a list of bits")
-  ("•" @tt{y} "as a list of bits")
-  ("•" @tt{x+y} (list "as a list of bits computed by the " @tt{6-bit-adder}))
-  ("•" @tt{ov} "overflow bit"))
+ ((@tt{x} " ")
+  (@tt{y} " ")
+  (@tt{x+y} (list "as computed by the " @tt{6-bit-adder}))
+  (@tt{x} "as a list of bits")
+  (@tt{y} "as a list of bits")
+  (@tt{x+y} (list "as a list of bits computed by the " @tt{6-bit-adder}))
+  (@tt{ov} "overflow bit"))
  #:sep (hspace 1)]}
 @Interaction*[
 (define (run-example x y)
@@ -888,7 +968,7 @@ Hence 2000+100 must yield overflow:
 (begin
  (printf "a : ~s~n" a)
  (printf "b : ~s~n" b)
- (printf "s : ~s: wrong, of course. (~s-4096)~n" sum (+ a b))
+ (printf "s : ~s: wrong, of course. (~s=~s-4096)~n" sum sum (+ a b))
  (printf "a : ~s~n" a-bits)
  (printf "b : ~s~n" b-bits)
  (printf "s : ~s~n" sum-bits)
@@ -912,9 +992,9 @@ Its diagram looks pretty much like that of a @elemref["D-latch"]{D-latch}.@(lb)
   (J K clock) 
   (P Q)       
   (reset (Nand J clock))
-  (SET   (Nand K clock))
+  (set   (Nand K clock))
   (P     (Nand reset Q))
-  (Q     (Nand SET   P))))]
+  (Q     (Nand set   P))))]
 @tt{P} and @tt{Q} always are inverses of each other, provided never @tt{J=K=1}
 and the latch has been stabilized by setting or resetting it.
 They are the state and inverted state of the JK-latch.
@@ -924,7 +1004,7 @@ The state transition table for a JK-latch after a @nbr[1]-pulse on the @tt{clock
  ((tt "0") (tt "0") (tt "P") (tt "Q") (tt "P") (tt "Q") "State preserved")
  ((tt "0") (tt "1") (tt " ") (tt " ") (tt "0") (tt "1") "Reset")
  ((tt "1") (tt "0") (tt " ") (tt " ") (tt "1") (tt "0") "Set")
- ((tt "1") (tt "1") 'cont 'cont 'cont 'cont @red{Don't do this}))
+ ((tt "1") (tt "1") 'cont 'cont 'cont 'cont @red{Do not clock this}))
  #:row-properties '((top-border bottom-border) () () () bottom-border)
  #:column-properties '(()()()() center center left)
  #:sep (hspace 2)]}
@@ -995,28 +1075,28 @@ Details are collected in a table.
   (list J K (list old-P old-Q) (list new-P new-Q)
    (case (list J K old-P)
     (((0 0 0)) "no action")
-    (((0 1 0)) "reset (was already reset)")
+    (((0 1 0)) "reset (already was reset)")
     (((1 0 0)) "set")
     (((1 1 0)) "flip")
     (((0 0 1)) "no action")
     (((0 1 1)) "reset")
-    (((1 0 1)) "set (was already set)")
+    (((1 0 1)) "set (already was set)")
     (((1 1 1)) "flip")))))
 (code:comment " ")
 (define (do-test-and-print-table)
  (code:comment "We print the details in a table.")
  (code:comment "First the header of the table.")
- (define line (make-string 52 #\─))
- (printf " ~n~a~n" line)
+ (define border (make-string 52 #\─))
+ (printf " ~n~a~n" border)
  (printf "     old state  new state~n")
  (printf "J K    (P Q)      (P Q)    action~n")
- (printf "~a~n" line)
+ (printf "~a~n" border)
  (code:comment "The test proper.")
  (define table (test/make-table))
  (code:comment "Print the results.")
- (for ((line (in-list table)))
-  (apply printf "~s ~s    ~s      ~s    ~a~n" line))
- (printf "~a~n" line))
+ (for ((row (in-list table)))
+  (apply printf "~s ~s    ~s      ~s    ~a~n" row))
+ (printf "~a~n" border))
  (code:comment " ")
 (do-test-and-print-table)]
 

@@ -9,9 +9,9 @@
   racket
   racket/block
   "digital-circuits.rkt"
-  (for-label "digital-circuits.rkt" racket racket/block)
-  (for-template "digital-circuits.rkt" racket racket/block)
-  (for-syntax racket racket/block))
+  (for-label "digital-circuits.rkt" (except-in racket set) racket/block)
+  (for-template "digital-circuits.rkt" (except-in racket set) racket/block)
+  (for-syntax (except-in racket set) racket/block))
 
 @(provide (all-defined-out))
 
