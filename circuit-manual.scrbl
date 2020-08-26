@@ -17,8 +17,9 @@
 @section{Introduction}
 
 Module @hyperlink["digital-circuits.rkt"]{digital-circuits.rkt}
-provides a simple tool for the preparation of procedures for digital simulation of digital
-electronic circuits. Given the digital inputs such a procedure calculates the digital outputs.
+provides a simple tool for the preparation of procedures
+for digital simulation of digital electronic circuits.
+Given the digital inputs such a procedure calculates the digital outputs.
 It can have an internal state that is preserved between successive calls.
 These calls can be regarded as successive points of
 time at which the signals on the inputs can be changed.
@@ -35,13 +36,16 @@ The outputs and new internal state can depend on both the inputs and the former 
  #:row-properties '((top-border bottom-border) () () bottom-border)
  #:column-properties '(center center center center center center)]})
 
+@ternary-table
+
 @elemtag{D-latch}
-As introductory example a D-latch:@(lb)
+As introductory example a D-latch.@(lb)
 It has two inputs, say @tt{in} and @tt{clock}.@(lb)
 It has two outputs, say @tt{state} and @nb{@tt{state-inverse}}.@(lb)
 The outputs are preserved as internal state.@(lb)
-They always are inverses of each other (after the D-latch has been initialized properly).@(lb)
-After switching the inputs, the new @tt{state} can depend on the previous @tt{state}.@(lb)
+After the @nb{D-latch} has been initialized properly,@(lb)
+the outputs always remain inverses of each other.@(lb)
+The new @tt{state} can depend on the previous @tt{state}.@(lb)
 The following transition table applies:
 
 @inset{@Tabular[
@@ -82,7 +86,7 @@ can be made by straightforwardly listing the elements of the diagram:
 
 Syntax @nbr[make-circuit-maker] produces a thunk, called a ‘circuit maker’.
 The latter returns a procedure for the simulation, called a ‘circuit procedure’.
-We must call the circuit maker in order to make an instance of the circuit procedure proper.
+We have to call the @nb{circuit maker} in order to make an instance of the circuit procedure proper.
 In section @secref["mcm"] we shall see why the circuit procedure is not made immediately.
 
 @Interaction*[(define D-latch (make-D-latch))]
@@ -102,15 +106,15 @@ During power on, the @nb{@tt{D-latch}} must be reset or set with a @nbr[1]-pulse
 @tt{clock} and @tt{in} hold at @nbr[0] or @nbr[1].
 This is necessary in order to stabilize the @tt{state} and @tt{state-inverse}.
 Otherwise they may vibrate for a while, possibly forever,
-both simul@(-?)ta@(-?)neously receiving the same signal and simul@(-?)ta@(-?)neously sending the same
+both simultaneously receiving the same signal and simultaneously sending the same
 inverted signal, which means that they remain switching.
 Once stable, the @tt{state} and @tt{state-inverse} are inverses of each other
 and remain as they are after the @tt{clock} falls down from @nb{@nbr[1] to @nbr[0]}.
 A circuit procedure is protected such as never to vibrate more than one cycle;
 outputs may be indeterminate or a warning may be issued or an exception may be raised
-depending on the @elemref["circuit procedure"]{circuit procedure} itself and on how it is called.
+depending on the @elemref["circuit procedure"]{circuit procedure} itself and how it is called.
 Let' see what happens when we start up with @tt{clock}=@nbr[0].
-In this example a D-latch is used whose intern@(-?)al state is initialized with
+In this example a D-latch is used whose internal state is initialized with
 @nbr[power-up-signal] @nbr[0],
 for this provides a better demonstration of what goes wrong.
 (The default @nbr[power-up-signal] is @nbrl[?]{indeterminate}.)
@@ -119,7 +123,7 @@ for this provides a better demonstration of what goes wrong.
 @Interaction*[
 (define another-D-latch
  (parameterize ((power-up-signal 0))
-  (make-D-latch)))
+  (circuit-rename! (make-D-latch) 'another-D-latch)))
 (another-D-latch ? 0 #:report #t)]
 
 In step 2 @tt{state} and @tt{state-inverse} simultaneously switch from @nbr[1] to @nbr[0],
@@ -130,9 +134,12 @@ We'd better initialize the D-latch as follows:
 
 @Interaction*[
 (D-latch 0 1 #:report #t)]
+
 Now we can safely drop the @tt{clock} to @nbr[0].
 When the @tt{clock} is @nbr[0], @tt{in} is irrelevant and we can leave it indeterminate.
+
 @Interaction*[(D-latch ? 0 #:report #t)]
+
 After the clock is put down to @nbr[0], internal signal @tt{set} raises to @nbr[1],
 but none of the other signals change.
 
@@ -216,8 +223,7 @@ Each time the thunk is called it returns a distinct instance of a
 id est, an instance with its own internal state.
 This is important when the @nbr[output]s of the circuit may depend on a preserved internal state and
 several instances are needed in one or more circuits.
-Each such instance must have its own internal state in order that
-they @nb{do not} disturb each other's internal states.
+Each such instance must have its own internal state.
 
 The following restrictions apply:
 
@@ -232,9 +238,9 @@ The following restrictions apply:
 @nbr[gate-output]s.@(lb)
 • A @nbr[gate-expr] must not involve direct nor indirect calls to the circuit it is part of.
 
-The last three requirements are checked while a
+The last three restrictions are checked while a
 @elemref["circuit procedure"]{circuit procecure} is running.
-The other requirements are checked immediately during expansion.
+The other restrictions are checked immediately during expansion.
 Within each @nbr[gate-expr] all identifiers of the @nbr[input]s
 and @nbr[gate-output]s are bound, those of other @nbr[gate]s included.@(lb)
 They can be used as inputs of the @nbr[gate].
@@ -246,9 +252,10 @@ The @nbr[name] is used for the @nbr[object-name] and the
 @seclink["print-unreadable"
 #:doc '(lib "scribblings/reference/reference.scrbl")]{printed form}
 of the circuit maker and the circuit procedures it makes.
-Here is an empty circuit showing how the @nbr[object-name]s and
+The following example shows how the @nbr[object-name]s and
 @seclink["print-unreadable"
-#:doc '(lib "scribblings/reference/reference.scrbl")]{printed forms} look like:
+#:doc '(lib "scribblings/reference/reference.scrbl")]{printed forms}
+look like:
                                                      
 @Interaction[
 (define make-empty-circuit (make-circuit-maker nothing () ()))
@@ -264,7 +271,7 @@ but it must not directly nor indirectly call the circuit procedure it belongs to
 for this would represent an infinitely deep nesting of the circuit,
 which in real life is impossible, of course.
 A circuit can have circular dependencies between its internal signals, though.
-For example the signals @tt{state} and @nb{@tt{state-inverse}}
+For example, the signals @tt{state} and @nb{@tt{state-inverse}}
 in the above @nb{@elemref["D-latch"]{D-latch}} have such dependency.
 When a @nbr[gate-expr] directly or indirectly calls the circuit procedure it is part of,
 an exception is raised:
@@ -289,7 +296,7 @@ A @nbr[gate] is not required to have outputs.
 Such a @nbr[gate] can be used for inclusion of checks and for printed output
 as a probe on some or all wires:
 
-@inset{@image["probed-circuit.gif" #:scale 1]}
+@inset{@image["probed-circuit.gif" #:scale 0.75]}
 
 @Interaction[
 (define make-probed-circuit
@@ -328,6 +335,10 @@ is made by a @nbrl[circuit-maker?]{circuit maker}.
   (parameterize ((power-up-signal start)) (make-weird-circuit)))
  (printf "power-up=~s => out=~s~n" start (weird-circuit)))]}
 
+@defproc[(circuit-rename! (circuit circuit?) (name symbol?)) circuit?]{
+Changes the name of a circuit and returns it.
+The renamed circuit is @nbr[eq?] to the original.}
+
 @elemtag{circuit procedure}
 @section{Circuit procedures}
 
@@ -354,21 +365,10 @@ all @racket[gate-expr]s are evaluated.
 as its @racket[gate] has @racket[gate-output]s.
 @nb{The values} must be @racketlink[trit?]{trits}, of course.
 After all @racket[gate-expr]s have been evaluated,
-the values are transmitted to the @racket[gate-output]s,
-disregarding the fact that the gates and subcircuits represented by the @nbr[gate-expr]s
-may have different delays.
+the signals are transmitted simultaneously to the @racket[gate-output]s.
 More steps are made until all @racket[gate-output]s are stable.
-@nb{A @racket[gate-output]} is stable if it no longer changes value.
 After stability is obtained, the @racket[output]s are returned as a multiple value.
 The internal state is preserved for the next call to the circuit procedure.
-
-Disregarding delays can yield other internal states and @nbr[output]s than
-when the delays are taken into account.
-Consider disregarding delays as automatically inserting delays at the @nbr[gate-output]s
-such that they switch simultaneously. A secure way to make such delays is as follows.
-Transmit each @nbr[gate-output] whose delay must be taken into account
-via a @nb{@elemref["D-latch"]{D-latch}}.
-Use a clock to switch the @nbr[gate-output]s simultaneously.
 
 When repetition of a previous unstable internal state is detected,
 the simulation is terminated, for otherwise the circuit procedure would loop forever.
@@ -392,8 +392,8 @@ id est without dependency on a preserved internal state within the gate or circu
 The same elementary gate or circuit can be used multiple times in the same circuit or in two or more
 distinct circuits as though each occurrence refers to a distinct gate or circuit.
 Syntax @nbr[make-circuit-maker] cannot distinguish
-elementary gates or circuits from those with internal state.
-No errors or warnings are issued.
+elementary gates or circuits from those with internal state;
+no errors or warnings are issued.
 
 If @nbr[indeterminate-error] has a true value and one or more @nbr[output]s are
 indeterminate, an exception is raised:
@@ -488,7 +488,10 @@ A function that is associative when restricted to application to two arguments
 not necessarily is associative in generalized sense too.
 @nb{For an example} see procedure @nbr[Eq].
 
-@defproc[(Not (input trit?)) trit?]{
+@defproc[#:kind "predicate" (gate? (obj any/c)) boolean?]{
+This predicate holds for all elementary gates described in this section.}
+
+@defproc[#:kind "elementary gate" (Not (input trit?)) trit?]{
 @ignore{
 @nbr[(Not 0)] yields @nbr[1].@(lb)
 @nbr[(Not 1)] yields @nbr[0].@(lb)
@@ -496,7 +499,7 @@ not necessarily is associative in generalized sense too.
  
 @(inset (make-truth-table (input) (Not input) #t))}
 
-@defproc[(And (input trit?) ...) trit?]{
+@defproc[#:kind "elementary gate" (And (input trit?) ...) trit?]{
 Yields @nbr[1] when called without @nbr[input]s.@(lb)
 Yields @nbr[0] when at least one @nbr[input] is @nbr[0].@(lb)
 Yields @nbr[1] when all @nbr[input]s are @nbr[1].@(lb)
@@ -517,7 +520,7 @@ Else yields @nbr[?].
  (and (eq? (And (And a b) c) And-abc)
       (eq? (And a (And b c)) And-abc)))]}
 
-@defproc[(Nand (input trit?) ...) trit?]{
+@defproc[#:kind "elementary gate" (Nand (input trit?) ...) trit?]{
 Yields @nbr[0] when called without @nbr[input]s.@(lb)
 Yields @nbr[1] when at least one @nbr[input] is @nbr[0].@(lb)
 Yields @nbr[0] when all @nbr[input]s are @nbr[1].@(lb)
@@ -538,7 +541,7 @@ In other words: same as @nbr[(Not (And input ...))]
 @Interaction[
 (values (Nand (Nand 0 0) 1) (Nand 0 (Nand 0 1)))]}
 
-@defproc[(Or (input trit?) ...) trit?]{
+@defproc[#:kind "elementary gate" (Or (input trit?) ...) trit?]{
 Yields @nbr[0] when called without @nbr[input]s.@(lb)
 Yields @nbr[1] when at least one @nbr[input] is @nbr[1].@(lb)
 Yields @nbr[0] when all @nbr[input]s are @nbr[0].@(lb)
@@ -573,7 +576,7 @@ the distributivity holds both at the right and at the left:
   (eq? (Or a (And b c)) (And (Or a b) (Or a c)))
   (eq? (Or (And b c) a) (And (Or b a) (Or c a)))))]}
 
-@defproc[(Nor (input trit?) ...) trit?]{
+@defproc[#:kind "elementary gate" (Nor (input trit?) ...) trit?]{
 Yields @nbr[1] when called without @nbr[input]s.@(lb)
 Yields @nbr[0] when at least one @nbr[input] is @nbr[1].@(lb)
 Yields @nbr[1] when all @nbr[input]s are @nbr[0].@(lb)
@@ -593,7 +596,7 @@ In other words: same as @nbr[(Not (Or input ...))]
 @Interaction[
 (values (Nor (Nor 0 0) 1) (Nor 0 (Nor 0 1)))]}
 
-@defproc[(Xor (input trit?) ...) trit?]{
+@defproc[#:kind "elementary gate" (Xor (input trit?) ...) trit?]{
 Yields @nbr[0] when called without @nbr[input]s.@(lb)
 Yields @nbr[?] when at least one @nbr[input] is @nbr[?].@(lb)
 Yields @nbr[1] when an odd number of @nbr[input]s is @nbr[1]
@@ -618,7 +621,7 @@ and all other @nbr[input]s, if any, are @nbr[0].
  (and (eq? (Xor (Xor a b) c) Xor-abc)
       (eq? (Xor a (Xor b c)) Xor-abc)))]}
 
-@defproc[(Eq (p trit?) ...) trit?]{
+@defproc[#:kind "elementary gate" (Eq (p trit?) ...) trit?]{
 Yields @nbr[1] when called without arguments.@(lb)
 Yields @nbr[1] if all arguments are @nbr[0] or all are @nbr[1].@(lb)
 Yields @nbr[0] if at least one argument is @nbr[0] and at least one is @nbr[1].@(lb)
@@ -656,7 +659,7 @@ does not imply that @tt{a}, @tt{b} and @tt{c} have the same value,
 for example @nbr[(Eq (Eq 0 0) 1)] → @nbr[1].
 Compare this with @nbr[(eq? (eq? #f #f) #t)] → @nbr[#t].}
 
-@defproc[(Implies (premise trit?)(implication trit?)) trit?]{
+@defproc[#:kind "elementary gate" (Implies (premise trit?)(implication trit?)) trit?]{
 Same as: @nbr[(Or (Not premise) implication)].
          
 @(inset (make-truth-table (premise implication) (Implies premise implication) #t))
@@ -675,7 +678,7 @@ When we assume a false @nbr[premise] to be true, every @nbr[implication] becomes
 as well as the negation of every @nbr[implication].
 In a prove ad absurdum, this rule often is used to prove that a given premise cannot be true.}
 
-@defproc[(If (test trit?) (then trit?) (else trit?)) trit?]{
+@defproc[#:kind "elementary gate" (If (test trit?) (then trit?) (else trit?)) trit?]{
 If @nbr[then] and @nbr[else] are the same, their value is returned.@(lb)
 Else if @nbr[test] is @nbr[T], @nbr[then] is returned.@(lb)
 Else if @nbr[test] is @nbr[F], @nbr[else] is returned.@(lb)

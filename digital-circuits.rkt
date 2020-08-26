@@ -33,7 +33,9 @@
  values->list
  circuit?
  circuit-maker?
- power-up-signal)
+ power-up-signal
+ circuit-rename!
+ gate?)
 
 ;=====================================================================================================
 ; Structs for circuit-makers and circuits themselfes.
@@ -49,10 +51,24 @@
 (define (circuit-printer circuit port mode)
  (fprintf port "#<circuit:~a>" (circuit-name circuit)))
 
-(struct circuit (name proc)
+(struct circuit ((name #:mutable) proc)
  #:property prop:procedure 1
  #:property prop:custom-write circuit-printer
- #:property prop:object-name 0)
+ #:property prop:object-name (λ (circuit) (string->symbol (format "~a" (circuit-name circuit)))))
+
+(define (circuit-rename! circuit name)
+ (unless (symbol? name) (raise-argument-error 'circuit-rename "symbol?" 1 name circuit))
+ (unless (circuit? circuit) (raise-argument-error "circuit?" 0 name circuit))
+ (set-circuit-name! circuit name)
+ circuit)
+
+(define (gate-printer gate port mode)
+ (fprintf port "#<gate:~a>" (gate-name gate)))
+
+(struct gate (name proc)
+ #:property prop:procedure 1
+ #:property prop:custom-write gate-printer
+ #:property prop:object-name (λ (x) (string->symbol (format "gate:~a" (gate-name x)))))
 
 ;=====================================================================================================
 ; Trinary logic.
@@ -96,95 +112,99 @@
      (((new-gate-output ...) ...)
       (map generate-temporaries (syntax->list #'((gate-output ...) ...))))
      ((gate-arity ...) (map length (syntax->datum #'((gate-output ...) ...)))))
-    (check-make-circuit-maker-form
-   #'(name (input ...) (output ...) ((gate-output ...) gate-expr) ...))
+    (check-make-circuit-maker-form #'(name (input ...) (output ...) ((gate-output ...)) ...))
   #'(circuit-maker 'name
      (lambda ()
-      (circuit 'name
-       (let ((saved-gate-output (power-up-signal)) ... ... (active (make-parameter #f)))
-        (λ (input ... #:report (report #f)
-                      #:unstable-error (unstable-error #t)
-                      #:indeterminate-error (indeterminate-error #f))
-         (when (active) (error 'name "direct or indirect recursive call prohibited"))
-         (parameterize ((active #t))
-          (unless (trit? input) (error 'name "input ~s must be a trit, given: ~s" 'input input)) ...
-          (when report
-           (printf "~nReport of circuit ~s:~n~n" 'name)
-           (printf "Inputs of circuit ~s:~n" 'name)
-           (printf "  ~s = ~s~n" 'input input) ...
-           (printf "~nInitial state of circuit ~s:~n" 'name)
-           (printf "  ~s = ~s~n" 'gate-output saved-gate-output) ... ...)
-          (let loop ((step 1) (history (set)) (gate-output saved-gate-output) ... ...)
-           (cond
-            ((set-member? history (list gate-output ... ...))
-             (cond
-              (unstable-error
-               (error 'name
-                (string-append
-                 "repeated unstable state~n"
-                 (format "  ~s = ~s~n" 'input input) ...
-                 (format "  ~s = ~s~n" 'gate-output gate-output) ... ...)))
-              (else
-               (eprintf "Warning: ~a halted in unstable state~n" 'name)
-               (set! history (set))
-               (values output ...))))
-            (else
-             (let-values
-              (((new-gate-output ...)
-                (let-syntax
-                 ([gate-output
-                   (make-set!-transformer
-                    (lambda (stx)
-                     (syntax-case stx (set!)
-                      [(set! id v)
-                       (raise-syntax-error (syntax->datum #'name)
-                        "assignment to gate-output prohibited" stx #'id)]
-                      [id (identifier? #'id) #'gate-output])))] ... ...
-                  [input
-                   (make-set!-transformer
-                    (lambda (stx)
-                     (syntax-case stx (set!)
-                      [(set! id v)
-                       (raise-syntax-error (syntax->datum #'name)
-                        "assignment to input prohibited" stx #'id)]
-                      [id (identifier? #'id) #'input])))] ...)
-                 (let
-                  ((vals (call-with-values (λ () gate-expr) list)))
-                  (unless (= (length vals) gate-arity)
-                   (error 'name "incorrect nr of values for wires ~s" '(gate-output ...)))
-                  (unless (andmap trit? vals)
-                   (error 'name "non trit values found for gate-outputs: ~s~nvalues: ~s"
-                    '(gate-output ...) vals))
-                  (apply values vals)))) ...)
+      (letrec
+       ((the-circuit
+         (circuit 'name
+          (let ((saved-gate-output (power-up-signal)) ... ... (active (make-parameter #f)))
+           (λ (input ... #:report (report #f)
+                         #:unstable-error (unstable-error #t)
+                         #:indeterminate-error (indeterminate-error #f))
+            (define neem (circuit-name the-circuit))
+            (when (active) (error neem "direct or indirect recursive call prohibited"))
+            (parameterize ((active #t))
+             (unless (trit? input) (error neem "input ~s must be a trit, given: ~s" 'input input))
+             ... 
+             (when report
+              (printf "~nReport of circuit ~s:~n" neem)
+              (printf "Inputs of circuit ~s:~n" neem)
+              (printf "  ~s = ~s~n" 'input input) ...
+              (printf "~nInitial state of circuit ~s:~n" neem)
+              (printf "  ~s = ~s~n" 'gate-output saved-gate-output) ... ...)
+             (let loop ((step 1) (history (set)) (gate-output saved-gate-output) ... ...)
               (cond
-               ((and (eq? new-gate-output gate-output) ... ...)
-                (set!-values (saved-gate-output ...) (values new-gate-output ...)) ...
-                (when report
-                 (printf "~nFinal state of circuit ~s:~n" 'name)
-                 (printf "  ~s = ~s~n" 'gate-output gate-output) ... ...
-                 (when (member ? (list output ...))
-                  (eprintf "~nWARNING: one or more indeterminate outputs.~n"))
-                 (printf "~nEnd of report of circuit ~s.~n~n" 'name))
-                (set! history '())
-                (define outputs (list output ...))
-                (when (and (member ? outputs) indeterminate-error)
-                 (error 'name "indeterminate outputs: ~n~a"
-                  (string-append
-                   (if (?? output) (format "  ~a~n" 'output) "") ...)))
-                (values output ...))
+               ((set-member? history (list gate-output ... ...))
+                (cond
+                 (unstable-error
+                  (error neem
+                   (string-append
+                    "repeated unstable state~n"
+                    (format "  ~s = ~s~n" 'input input) ...
+                    (format "  ~s = ~s~n" 'gate-output gate-output) ... ...)))
+                 (else
+                  (eprintf "Warning: ~a halted in unstable state~n" neem)
+                  (set! history (set))
+                  (values output ...))))
                (else
-                (when report
-                 (printf "~nStep ~s of circuit ~s:~n" step 'name)
-                  (unless (eq? gate-output new-gate-output)
-                   (printf "  ~s : ~s -> ~s~n" 'gate-output gate-output new-gate-output)) ... ...)
-                (loop
-                 (add1 step)
-                 (set-add history (list gate-output ... ...))
-                 new-gate-output ... ...)))))))))))))))))
+                (let-values
+                 (((new-gate-output ...)
+                   (let-syntax
+                    ([gate-output
+                      (make-set!-transformer
+                       (lambda (stx)
+                        (syntax-case stx (set!)
+                         [(set! id v)
+                          (raise-syntax-error (syntax->datum #'name)
+                           "assignment to gate-output prohibited" stx #'id)]
+                         [id (identifier? #'id) #'gate-output])))] ... ...
+                     [input
+                      (make-set!-transformer
+                       (lambda (stx)
+                        (syntax-case stx (set!)
+                         [(set! id v)
+                          (raise-syntax-error (syntax->datum #'name)
+                           "assignment to input prohibited" stx #'id)]
+                         [id (identifier? #'id) #'input])))] ...)
+                    (let
+                     ((vals (values->list gate-expr)))
+                     (unless (= (length vals) gate-arity)
+                      (error neem "incorrect nr of values for wires ~s" '(gate-output ...)))
+                     (unless (andmap trit? vals)
+                      (error neem "non trit values found for gate-outputs: ~s~nvalues: ~s"
+                       '(gate-output ...) vals))
+                     (apply values vals)))) ...)
+                 (cond
+                  ((and (eq? new-gate-output gate-output) ... ...)
+                   (set!-values (saved-gate-output ...) (values new-gate-output ...)) ...
+                   (when report
+                    (printf "~nFinal state of circuit ~s:~n" neem)
+                    (printf "  ~s = ~s~n" 'gate-output gate-output) ... ...
+                    (when (member ? (list output ...))
+                     (eprintf "~nWARNING: one or more indeterminate outputs.~n"))
+                    (printf "~nEnd of report of circuit ~s.~n~n" neem))
+                   (set! history '())
+                   (define outputs (list output ...))
+                   (when (and (member ? outputs) indeterminate-error)
+                    (error neem "indeterminate outputs: ~n~a"
+                     (string-append
+                      (if (?? output) (format "  ~a~n" 'output) "") ...)))
+                   (values output ...))
+                  (else
+                   (when report
+                    (printf "~nStep ~s of circuit ~s:~n" step neem)
+                     (unless (eq? gate-output new-gate-output)
+                      (printf "  ~s : ~s -> ~s~n" 'gate-output gate-output new-gate-output)) ... ...)
+                   (loop
+                    (add1 step)
+                    (set-add history (list gate-output ... ...))
+                    new-gate-output ... ...)))))))))))))
+       the-circuit)))))))
 
 (define-for-syntax (check-make-circuit-maker-form stx)
  (syntax-case stx ()
-  ((name (input ...) (output ...) ((gate-output ...) gate-expr) ...)
+  ((name (input ...) (output ...) ((gate-output ...)) ...)
    (unless (identifier? #'name)
     (raise-syntax-error 'make-circuit-maker "identifier expected" stx #'name))
    (check-circuit-form-helper stx
@@ -219,39 +239,42 @@
 ;=====================================================================================================
 ; Elementary gates.
 
-(define (Not p) (case p ((0) 1) ((1) 0) (else ?)))
+(define-syntax-rule (define-gate (name . args) . body)
+ (define name (gate 'name (λ args . body))))
 
-(define (And . p)
+(define-gate (Not p) (case p ((0) 1) ((1) 0) (else ?)))
+
+(define-gate (And . p)
  (cond
   ((member 0 p) 0)
   ((member ? p) ?)
   (else 1)))
 
-(define (Or . p)
+(define-gate (Or . p)
  (cond
   ((member 1 p) 1)
   ((member ? p) ?)
   (else 0)))
 
-(define (Nand . p)
+(define-gate (Nand . p)
  (cond
   ((member 0 p) 1)
   ((member ? p) ?)
   (else 0)))
 
-(define (Nor . p)
+(define-gate (Nor . p)
  (cond
   ((member 1 p) 0)
   ((member ? p) ?)
   (else 1)))
 
-(define (Xor . p)
+(define-gate (Xor . p)
  (cond
   ((member ? p) ?)
   ((odd? (count positive? p)) 1)
   (else 0)))
 
-(define (Eq . x)
+(define-gate (Eq . x)
  (let loop ((x x) (?? 1) (0? #f) (1? #f))
   (cond
    ((null? x) ??)
@@ -261,9 +284,9 @@
      ((1) (if 0? 0 (loop (cdr x) ?? 0? #t)))
      ((?) (loop (cdr x) ? 0? 1?)))))))
 
-(define (Implies a b) (Or (Not a) b))
+(define-gate (Implies a b) (Or (Not a) b))
 
-(define (If condition then else)
+(define-gate (If condition then else)
  (if (eq? then else) then
   (Or
    (And condition then)
