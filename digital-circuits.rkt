@@ -114,11 +114,13 @@
      ((gate-arity ...) (map length (syntax->datum #'((gate-output ...) ...)))))
     (check-make-circuit-maker-form #'(name (input ...) (output ...) ((gate-output ...)) ...))
   #'(circuit-maker 'name
-     (lambda ()
+     (lambda (#:name (qname 'name) #:power-up (power-up (power-up-signal)))
+      (unless (symbol? qname) (error 'name "symbol expected for the name, given: ~s" qname))
+      (unless (trit? power-up) (error 'name "trit expected for power-up, given: ~s" power-up))
       (letrec
        ((the-circuit
-         (circuit 'name
-          (let ((saved-gate-output (power-up-signal)) ... ... (active (make-parameter #f)))
+         (circuit qname
+          (let ((saved-gate-output power-up) ... ... (active (make-parameter #f)))
            (λ (input ... #:report (report #f)
                          #:unstable-error (unstable-error #t)
                          #:indeterminate-error (indeterminate-error #f))
