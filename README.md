@@ -12,9 +12,9 @@ For example: a very straight forward coding of a D-latch simulator:
 
 (define make-D-latch
  (make-circuit-maker
-  D-latch     ; name
-  (in clock)  ; inputs
-  (state)     ; outputs
+  D-latch               ; name
+  (in clock)            ; inputs
+  (state state-inverse) ; outputs
   ; Gates:
   (reset         (Nand in    clock))
   (set           (Nand reset clock))
@@ -28,7 +28,7 @@ For example: a very straight forward coding of a D-latch simulator:
 Syntax make-circuit-maker produces a thunk, in the example make-D-latch.\
 make-D-latch returns a distinct D-gate every time it is called.\
 Every instance is a procedure with its own internal state.\
-D-latch is a procedure of two arguments *in* and *clock* and one output *state*.\
+D-latch is a procedure of two arguments *in* and *clock* and two outputs *state* and *state-inverse*.\
 For example:
 
 ```
