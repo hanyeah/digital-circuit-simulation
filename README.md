@@ -32,10 +32,10 @@ D-latch is a procedure of two arguments *in* and *clock* and two outputs *state*
 For example:
 
 ```
-(D-latch 0 1) -> 0 ; reset
-(D-latch ? 0) -> 0 ; preserve state
-(D-latch 1 1) -> 1 ; set
-(D-latch ? 0) -> 1 ; preserve state
+(D-latch 0 1) -> 0 1 ; reset
+(D-latch ? 0) -> 0 1 ; preserve state
+(D-latch 1 1) -> 1 0 ; set
+(D-latch ? 0) -> 1 0 ; preserve state
 ```
 A circuit can have more than one output, of course.\
 A ternary logic is used:
