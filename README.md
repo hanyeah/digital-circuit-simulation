@@ -3,7 +3,7 @@
 Written for use in DrRacket.\
 For example: a very straight forward coding of a D-latch simulator:
 
-[[https://github.com/joskoot/digital-circuit-simulation/D-latch.gif]]
+[[https://github.com/joskoot/digital-circuit-simulation/blob/master/D-latch.gif]]
 
 ```
 ---------------------------------------------
