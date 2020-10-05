@@ -25,10 +25,11 @@ For example: a very straight forward coding of a D-latch simulator:
 ---------------------------------------------
 ```
 
-Syntax make-circuit-maker produces a thunk, in the example make-D-latch.\
+Syntax make-circuit-maker produces a procedure, in the example make-D-latch.\
 make-D-latch returns a distinct D-gate every time it is called.\
 Every instance is a procedure with its own internal state.\
-D-latch is a procedure of two arguments *in* and *clock* and two outputs *state* and *state-inverse*.\
+D-latch is a procedure accepting the two arguments *in* and *clock*\
+and returning the two outputs *state* and *state-inverse*.\
 For example:
 
 ```
