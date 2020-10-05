@@ -48,6 +48,7 @@
 @(define nb nonbreaking)
 @; ignore is a syntax such as to prevent arguments to be evaluated.
 @(define-syntax-rule (ignore x ...) (void))
+@(define-syntax-rule (do-not-ignore x ...) (begin x ...))
 @; Below syntaxes are used such as to allow keyword arguments
 @; without explicitly mentioning them in the definitions.
 @(define-syntax-rule (nbsl x ...) (nb (seclink    x ...)))
@@ -190,3 +191,18 @@
             (list (table (style "specgrammar" tspec-style) without-empty-lines))) more)))))
       after))]))
 
+@(define (define-make-D-latch maker-only)
+ (define (example)
+  (Interaction*
+   (define make-D-latch
+    (make-circuit-maker
+     D-latch               (code:comment "name")
+     (in clock)            (code:comment "inputs")
+     (state state-inverse) (code:comment "outputs")
+     (code:comment "Gates:")
+     (reset         (Nand    in clock))
+     (set           (Nand reset clock))
+     (state         (Nand reset state-inverse))
+     (state-inverse (Nand   set state))))))
+ (if maker-only (example)
+  (begin (void (example) (Interaction* (define D-latch (make-D-latch)))))))

@@ -54,7 +54,7 @@
 (struct circuit ((name #:mutable) proc)
  #:property prop:procedure 1
  #:property prop:custom-write circuit-printer
- #:property prop:object-name (λ (circuit) (string->symbol (format "~a" (circuit-name circuit)))))
+ #:property prop:object-name (λ (circuit) (circuit-name circuit)))
 
 (define (circuit-rename! circuit name)
  (unless (symbol? name) (raise-argument-error 'circuit-rename "symbol?" 1 name circuit))
@@ -96,7 +96,7 @@
 (define power-up-signal (make-parameter ?  power-up-guard 'power-up-signal))
 
 ;=====================================================================================================
-; Central part of the code
+; Central part of the code: syntax make-circuit-maker
 
 (define-syntax (make-circuit-maker stx)
  (define (wrap stx)
@@ -131,10 +131,12 @@
              ... 
              (when report
               (printf "~nReport of circuit ~s:~n" neem)
-              (printf "Inputs of circuit ~s:~n" neem)
-              (printf "  ~s = ~s~n" 'input input) ...
-              (printf "~nInitial state of circuit ~s:~n" neem)
-              (printf "  ~s = ~s~n" 'gate-output saved-gate-output) ... ...)
+              (unless (null? '(input ...))
+               (printf "Inputs of circuit ~s:~n" neem)
+               (printf "  ~s = ~s~n" 'input input) ...)
+              (unless (null? '(gate-output ... ...))
+               (printf "~nInitial state of circuit ~s:~n" neem)
+               (printf "  ~s = ~s~n" 'gate-output saved-gate-output) ... ...))
              (let loop ((step 1) (history (set)) (gate-output saved-gate-output) ... ...)
               (cond
                ((set-member? history (list gate-output ... ...))
@@ -148,7 +150,7 @@
                  (else
                   (eprintf "Warning: ~a halted in unstable state~n" neem)
                   (set! history (set))
-                  (values output ...))))
+                  (values  output ...))))
                (else
                 (let-values
                  (((new-gate-output ...)
@@ -159,7 +161,8 @@
                         (syntax-case stx (set!)
                          [(set! id v)
                           (raise-syntax-error (syntax->datum #'name)
-                           "assignment to gate-output prohibited" stx #'id)]
+                           (format "assignment to gate-output ~s prohibited" (syntax->datum #'id))
+                           stx #'id)]
                          [id (identifier? #'id) #'gate-output])))] ... ...
                      [input
                       (make-set!-transformer
@@ -167,7 +170,8 @@
                         (syntax-case stx (set!)
                          [(set! id v)
                           (raise-syntax-error (syntax->datum #'name)
-                           "assignment to input prohibited" stx #'id)]
+                           (format "assignment to input ~s prohibited" (syntax->datum #'id))
+                           stx #'id)]
                          [id (identifier? #'id) #'input])))] ...)
                     (let
                      ((vals (values->list gate-expr)))
