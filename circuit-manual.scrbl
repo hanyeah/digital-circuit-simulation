@@ -99,7 +99,7 @@ whose initial value is @nbrl[?]{indeterminate}.)
 @Interaction*[
 (define wrongly-powered-up-D-latch
  (make-D-latch
-  #:name 'D-latch-powered-up-wrongly
+  #:name 'D-latch-with-wrong-power-up
   #:power-up 0))
 (wrongly-powered-up-D-latch 0 0 #:report #t)]
 In step 2 @tt{state} and @tt{state-inverse} simultaneously switch from @nbr[1] to @nbr[0],
@@ -225,7 +225,7 @@ Well, this works, but when listing all gates separately, things go wrong:
    (state-inverse (Not state)))))]
 @Interaction*[
 (check-latch wrong-D-latch)]
-It appears that in some situations the @tt{wrong-D-latch} is unstable.
+In some situations the @tt{wrong-D-latch} is unstable, even after correct power-up.
 The problem is located in signal @tt{b}.
 There is a circular dependency between signals @tt{b} and @tt{state}.
 However, signal @tt{b} has an inappropiate delay.
@@ -253,7 +253,7 @@ Another way to hack the problem is to delay signal @tt{a}:
    (in clock) (state state-inverse)
    (not-clock (Not clock))
    (a1 (Nand in clock))
-   (a a1) (code:comment "Delay a by one step.")
+   (a (Delay a1))
    (b (Nand not-clock state))
    (state (Nand a b))
    (state-inverse (Not state)))))]
@@ -270,7 +270,7 @@ More examples in section @secref["Elaborated examples"].
 #:contracts ((gate-expr (values trit? ...)))]{
 Yields a circuit maker:
 @elemtag{circuit-maker}
-@inset[@defproc[#:kind "" #:link-target? #f
+@inset[@defproc[#:link-target? #f
 (circuit-maker (#:name name symbol?
                 #,(tt @italic{name} @roman{ as given to } (nbr make-circuit-maker)))
                (#:power-up power-up trit? (power-up-signal))) circuit?]{
@@ -283,7 +283,8 @@ Each such instance must have its own internal state
 such as to prevent that they disturb each other's internal states.
 Argument @nbr[power-up] is for the initial value of all internal signals of the circuit made by the
 @elemref["circuit-maker"]{circuit-maker}.
-The initial value of parameter @nbr[power-up-signal] is @nbr[?].}]
+The initial value of parameter @nbr[power-up-signal] is @nbr[?],
+id est @nbrl[?]{indeterminate}.}]
 
 The following restrictions apply to @nbr[make-circuit-maker]:
 @inset{
@@ -532,10 +533,8 @@ Such a function will be said to be commutative if it is invariant
 under permutation of its arguments.
 It will be said to be associative if a nested application
 can be replaced by one single application.
-For example, @nbr[And] is associative in generalized sense. Therefore:
-@inset{@nbr[(And (And a b) (And c d))]
-@(hspace 1)can be written as:@(hspace 1)
-@nbr[(And a b c d)]}
+For example, @nbr[And] is associative in generalized sense. For example:
+@inset{@nbr[(And (And a b) (And c d))] can be written as: @nbr[(And a b c d)]}
 This excludes the distinction between left and right associativity,
 but in the present document this distinction is not needed.
 A function that is associative when called with two arguments only,
@@ -544,6 +543,7 @@ For an example see procedure @nbr[Eq].
 @defproc[#:kind "predicate" (gate? (obj any/c)) boolean?]{
 This predicate holds for all elementary gates described in this section.
 It returns @nbr[#t] if the @nbr[obj] is
+@nbr[Delay],
 @nbr[Not],
 @nbr[And],
 @nbr[Nand],
@@ -554,6 +554,28 @@ It returns @nbr[#t] if the @nbr[obj] is
 @nbr[Implies] or
 @nbr[If].
 For every other @nbr[obj] the predicate returns @nbr[#f].}
+@defproc[#:kind "elementary gate" (Delay (input trit?)) trit?]{
+Can be used for a single step delay.
+Not realy necessary, for a @tt{@italic{gate}} of the form @tt{(a b)}
+does exactly the same as @nbr[(a (Delay b))].
+The timing of switching signals that have circular dependency is very important.
+Gate @nbr[Delay] can help in most cases.
+@(inset (make-truth-table (input) (Delay input) #t))
+Notice that @nbr[(Delay (Delay a))] delays one step only, just like @nbr[(Delay a)].@(lb)
+Delays of more than one step require a separate @nbr[Delay]-@tt{@italic{gate}} for each delay.@(lb)
+The following example shows one step only:
+@Interaction[
+(((make-circuit-maker delay
+   (x) (y)
+   (y (Delay (Delay (Delay x))))))
+ 0 #:report #t)]
+The following excample shows three steps
+@Interaction[
+(((make-circuit-maker delay (x) (y)
+  (a (Delay x))
+  (b (Delay a))
+  (y (Delay b))))
+ 0 #:report #t)]}
 @defproc[#:kind "elementary gate" (Not (input trit?)) trit?]{
 @(inset (make-truth-table (input) (Not input) #t))}
 @defproc[#:kind "elementary gate" (And (input trit?) ...) trit?]{

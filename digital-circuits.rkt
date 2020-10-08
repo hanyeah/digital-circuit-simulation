@@ -15,6 +15,7 @@
  in-trits
  bits
  in-bits
+ Delay
  Not
  And
  Or
@@ -250,6 +251,7 @@
 (define-syntax-rule (define-gate (name . args) . body)
  (define name (gate 'name (λ args . body))))
 
+(define-gate (Delay p) p)
 (define-gate (Not p) (case p ((0) 1) ((1) 0) (else ?)))
 
 (define-gate (And . p)
