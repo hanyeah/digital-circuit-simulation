@@ -37,7 +37,7 @@ It has two inputs, say @tt{in} and @tt{clock}.@(lb)
 It has two outputs, say @tt{state} and @nb{@tt{state-inverse}}.@(lb)
 After the @nb{D-latch} has been initialized properly,@(lb)
 the outputs always remain inverses of each other.@(lb)
-The outputs and signals @tt{set} and @tt{reset} are preserved as internal state.@(lb)
+The outputs are preserved as internal state.@(lb)
 The new @tt{state} and @nb{@tt{state-inverse}} can depend on the previous @tt{state}.@(lb)
 The following transition table applies:
 @inset{@Tabular[
@@ -172,7 +172,93 @@ Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} v
  (printf border))]
 @Interaction*[
 (do-test-and-print-table)]
+The above table shows that:
+@inset{@nbr[new-state = (Or (And in clock) (And (Not clock) old-state))]}
+which is the same as:
+@inset{@nbr[new-state = (Nand (Nand in clock) (Nand (Not clock) old-state))]}
+Let's try this:
+@Interaction*[
+(define another-D-latch
+ ((make-circuit-maker another-D-latch
+   (in clock) (state state-inverse)
+   (state (Nand (Nand in clock) (Nand (Not clock) state)))
+   (state-inverse (Not state)))))]
+We check @tt{another-D-latch} to do the same as the original @tt{D-latch}:
+@Interaction*[
+(define (check-latch latch)
+ (if
+  (for*/fold ((ok #t)) ((in in-bits) (clock in-bits) (old-state in-bits))
+  (define-values (correct-state correct-state-inverse)
+   (begin (code:comment "For comparison with the original D-latch.")
+    (D-latch old-state 1) (code:comment "First put the latch in state=old-state.")
+    (D-latch in clock)))  (code:comment "Now send signals in and clock.")
+  (define-values (state state-inverse)
+   (begin (code:comment "For the latch to be tested.")
+    (latch old-state 1) (code:comment "First put the latch in state=old-state.")
+    (latch in clock #:unstable-error #f))) (code:comment "Send signals in and clock.")
+  (cond
+   ((and
+     (= state correct-state)
+     (= state-inverse correct-state-inverse))
+    ok)
+   (else
+    (printf "Failing test:~n")
+    (printf "in ~s~n" in)
+    (printf "clock ~s~n" clock)
+    (printf "old-state ~s~n" old-state)
+    (printf "expected state ~s~n" correct-state)
+    (printf "computed state ~s~n ~n" state)
+    #f)))
+  (printf "Test passed.~n")
+  (printf "Test failed.~n")))]
+@Interaction*[
+(check-latch another-D-latch)]
+Well, this works, but when listing all gates separately, things go wrong:
+@Interaction*[
+(define wrong-D-latch
+ ((make-circuit-maker wrong-D-latch
+   (in clock) (state state-inverse)
+   (not-clock (Not clock))
+   (a (Nand in clock))
+   (b (Nand not-clock state))
+   (state (Nand a b))
+   (state-inverse (Not state)))))]
+@Interaction*[
+(check-latch wrong-D-latch)]
+It appears that in some situations the @tt{wrong-D-latch} is unstable.
+The problem is located in signal @tt{b}.
+There is a circular dependency between signals @tt{b} and @tt{state}.
+However, signal @tt{b} has an inappropiate delay.
+Let's see what happens in a report:
+@Interaction*[
+(wrong-D-latch 1 1)
+(wrong-D-latch 1 0 #:report #t #:unstable-error #f)]
+The report shows that signal @tt{a} switches in step 1,
+but @tt{b} switches for the first time in step 2.
+However in step 2, signal @tt{state} switches too but based on the old signal of @tt{b}.
+It is important that signals @tt{a} and @tt{b} switch at the same time.
+We can hack this problem as follows, but it is not elegant:
+@Interaction*[
+(check-latch
+ ((make-circuit-maker hacked-D-latch
+   (in clock) (state state-inverse)
+   (a (Nand in clock))
+   (b (Nand (Not clock) state)) (code:comment "Reduce delay of b by one step.")
+   (state (Nand a b))
+   (state-inverse (Not state)))))]
+Another way to hack the problem is to delay signal @tt{a}:
+@Interaction*[
+(check-latch
+ ((make-circuit-maker hacked-D-latch
+   (in clock) (state state-inverse)
+   (not-clock (Not clock))
+   (a1 (Nand in clock))
+   (a a1) (code:comment "Delay a by one step.")
+   (b (Nand not-clock state))
+   (state (Nand a b))
+   (state-inverse (Not state)))))]
 @(reset-Interaction*)
+Section @secref{Circuit procedures} describes the timing of changes of signals.@(lb)
 More examples in section @secref["Elaborated examples"].
 @section[#:tag "mcm"]{Make-circuit-maker}
 @defform-remove-empty-lines[@defform[(make-circuit-maker name (input ...) (output ...) gate ...)
@@ -194,7 +280,7 @@ Each time the circuit maker is called it returns a distinct instance of a
 This is important when the @nbr[output]s of the circuit may depend on a preserved internal state and
 several instances are needed in one or more circuits.
 Each such instance must have its own internal state
-in other that they do not disturb each other's internal states.
+such as to prevent that they disturb each other's internal states.
 Argument @nbr[power-up] is for the initial value of all internal signals of the circuit made by the
 @elemref["circuit-maker"]{circuit-maker}.
 The initial value of parameter @nbr[power-up-signal] is @nbr[?].}]
@@ -303,7 +389,7 @@ Parameter containing the default value for optional keyword argument @tt{@italic
 for the initial signals in the internal state
 when a circuit procedure is made by a @elemref["circuit-maker"]{circuit maker}.}
 @elemtag{circuit procedure}
-@section{Circuit procedures}
+@section[#:tag "Circuit procedures"]{Circuit procedures}
 @defproc[#:kind "circuit procedure"
 (circuit (#:report report any/c #f)
          (#:unstable-error unstable-error any/c #t)

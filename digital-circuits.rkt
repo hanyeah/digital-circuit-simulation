@@ -149,6 +149,8 @@
                     (format "  ~s = ~s~n" 'gate-output gate-output) ... ...)))
                  (else
                   (eprintf "Warning: ~a halted in unstable state~n" neem)
+                 ;(eprintf "  ~s = ~s~n" 'input input) ...
+                 ;(eprintf "  ~s = ~s~n" 'gate-output gate-output) ... ...
                   (set! history (set))
                   (values  output ...))))
                (else
