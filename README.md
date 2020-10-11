@@ -26,7 +26,7 @@ For example: a very straight forward coding of a D-latch simulator:
 ```
 
 Syntax make-circuit-maker produces a procedure, in the example make-D-latch.\
-make-D-latch returns a distinct D-gate every time it is called.\
+make-D-latch returns a distinct D-latch every time it is called.\
 Every instance is a procedure with its own internal state.\
 D-latch is a procedure accepting the two arguments *in* and *clock*\
 and returning the two outputs *state* and *state-inverse*.\
