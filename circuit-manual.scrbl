@@ -124,18 +124,18 @@ Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} v
 @(define D-latch-comment
   (list "Send signals " @black{@tt{in}} " and " @black{@tt{clock}} " to the D-latch."))
 @Interaction*[
-(define (test/make-table) (code:comment "Does tests and gathers info in a table.")
+(define (test/make-table latch) (code:comment "Does tests and gathers info in a table.")
  (for*/list ((clock in-bits) (in in-bits) (old-state in-bits))
   (code:comment #,(list "First put the D-latch in state " @black{@tt{old-state}} " and check"))
   (code:comment "that the D-latch indeed assumes this state.")
-  (define-values (state state-inverse) (D-latch old-state 1))
+  (define-values (state state-inverse) (latch old-state 1))
   (unless
    (and
     (eq? state old-state)
     (eq? state-inverse (Not state)))
    (error "test fails"))
   (code:comment #,D-latch-comment)
-  (define-values (new-state new-state-inverse) (D-latch in clock))
+  (define-values (new-state new-state-inverse) (latch in clock))
   (code:comment "Check the results.")
   (unless 
    (and
@@ -152,9 +152,9 @@ Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} v
   ((= in 1) "set")
   (else (error 'action "unexpected arguments"))))]
 @Interaction*[
-(define (do-test-and-print-table)
+(define (do-test-and-print-table latch)
  (code:comment "The test proper.")
- (define table (test/make-table))
+ (define table (test/make-table latch))
  (code:comment "We print the details in a table.")
  (code:comment "First the header of the table.")
  (printf " ~n")
@@ -171,49 +171,26 @@ Let's test the @nb{D-latch} for all combinations of @seclink["binary"]{binary} v
  (printf "Hurray, test passed.~n")
  (printf border))]
 @Interaction*[
-(do-test-and-print-table)]
+(do-test-and-print-table D-latch)]
 The above table shows that:
 @inset{@nbr[new-state = (Or (And in clock) (And (Not clock) old-state))]}
 which is the same as:
 @inset{@nbr[new-state = (Nand (Nand in clock) (Nand (Not clock) old-state))]}
-Let's try this:
+Let's try a diagram according to this formula:
+@inset{@image["another-D-latch.gif" #:scale 1]}
+Let's call it @tt{another-D-latch}.
+For the moment ignore the bold bar in wire @tt{a}.
 @Interaction*[
 (define another-D-latch
  ((make-circuit-maker another-D-latch
    (in clock) (state state-inverse)
    (state (Nand (Nand in clock) (Nand (Not clock) state)))
    (state-inverse (Not state)))))]
-We check @tt{another-D-latch} to do the same as the original @tt{D-latch}:
 @Interaction*[
-(define (check-latch latch)
- (if
-  (for*/fold ((ok #t)) ((in in-bits) (clock in-bits) (old-state in-bits))
-  (define-values (correct-state correct-state-inverse)
-   (begin (code:comment "For comparison with the original D-latch.")
-    (D-latch old-state 1) (code:comment "First put the latch in state=old-state.")
-    (D-latch in clock)))  (code:comment "Now send signals in and clock.")
-  (define-values (state state-inverse)
-   (begin (code:comment "For the latch to be tested.")
-    (latch old-state 1) (code:comment "First put the latch in state=old-state.")
-    (latch in clock #:unstable-error #f))) (code:comment "Send signals in and clock.")
-  (cond
-   ((and
-     (= state correct-state)
-     (= state-inverse correct-state-inverse))
-    ok)
-   (else
-    (printf "Failing test:~n")
-    (printf "in ~s~n" in)
-    (printf "clock ~s~n" clock)
-    (printf "old-state ~s~n" old-state)
-    (printf "expected state ~s~n" correct-state)
-    (printf "computed state ~s~n ~n" state)
-    #f)))
-  (printf "Test passed.~n")
-  (printf "Test failed.~n")))]
-@Interaction*[
-(check-latch another-D-latch)]
-Well, this works, but when listing all gates separately, things go wrong:
+(define (test-latch latch) (and (test/make-table latch)) #t)
+(test-latch another-D-latch)]
+Well, this seems to work,
+but when listing all gates separately, things go wrong:
 @Interaction*[
 (define wrong-D-latch
  ((make-circuit-maker wrong-D-latch
@@ -223,43 +200,42 @@ Well, this works, but when listing all gates separately, things go wrong:
    (b (Nand not-clock state))
    (state (Nand a b))
    (state-inverse (Not state)))))]
-@Interaction*[
-(check-latch wrong-D-latch)]
-In some situations the @tt{wrong-D-latch} is unstable, even after correct power-up.
+In some situations the @tt{wrong-D-latch} is unstable, even after correct power-up and the @tt{clock}
+dropped to @nbr[0].
 The problem is located in signal @tt{b}.
 There is a circular dependency between signals @tt{b} and @tt{state}.
 However, signal @tt{b} has an inappropiate delay.
-Let's see what happens in a report:
+Let's see what happens after stabilizing the latch with @tt{state}=@nbr[1]
+and subsequently dropping the @tt{clock}:
 @Interaction*[
-(wrong-D-latch 1 1)
+(wrong-D-latch 1 1)]
+The @tt{wrong-D-latch} has been stabilized properly,
+but dropping the clock fails:
+@Interaction*[
 (wrong-D-latch 1 0 #:report #t #:unstable-error #f)]
 The report shows that signal @tt{a} switches in step 1,
-but @tt{b} switches for the first time in step 2.
-However in step 2, signal @tt{state} switches too but based on the old signal of @tt{b}.
-It is important that signals @tt{a} and @tt{b} switch at the same time.
-We can hack this problem as follows, but it is not elegant:
+but @tt{b} switches in step 2,
+in the same step as signal @tt{state} switches too but based on the old signal of @tt{b}.
+It is important that signal @tt{b} does not switch earlier than signal @tt{a}.
+We can hack this problem by delaying signal @tt{a} by one step,
+in the diagram shown as a bold bar:
 @Interaction*[
-(check-latch
- ((make-circuit-maker hacked-D-latch
-   (in clock) (state state-inverse)
-   (a (Nand in clock))
-   (b (Nand (Not clock) state)) (code:comment "Reduce delay of b by one step.")
-   (state (Nand a b))
-   (state-inverse (Not state)))))]
-Another way to hack the problem is to delay signal @tt{a}:
-@Interaction*[
-(check-latch
+(test-latch
  ((make-circuit-maker hacked-D-latch
    (in clock) (state state-inverse)
    (not-clock (Not clock))
    (a1 (Nand in clock))
-   (a (Delay a1))
+   (a a1) (code:comment "One step delay (The bold bar in signal a)")
    (b (Nand not-clock state))
    (state (Nand a b))
-   (state-inverse (Not state)))))]
+   (state-inverse (Not state)))))] @(reset-Interaction*)
+The @elemref["D-latch"]{first D-latch shown above} is more elegant.
+Section @secref{Circuit procedures} describes the timing of changes of signals.
+Timing considerations are important only in circuits with circular dependencies
+on its internal signals.
+
+More examples in section @seclink{Elaborated examples}.
 @(reset-Interaction*)
-Section @secref{Circuit procedures} describes the timing of changes of signals.@(lb)
-More examples in section @secref["Elaborated examples"].
 @section[#:tag "mcm"]{Make-circuit-maker}
 @defform-remove-empty-lines[@defform[(make-circuit-maker name (input ...) (output ...) gate ...)
 #:grammar ((name id)
@@ -378,7 +354,7 @@ Predicate for circuit makers made by syntax @nbr[make-circuit-maker].}
 @defproc[#:kind "predicate" (circuit? (obj any/c)) boolean?]{
 Predicate for circuit procedures made by a @elemref["circuit-maker"]{circuit maker}.}
 @defproc[(circuit-rename! (circuit circuit?) (name symbol?)) circuit?]{
-Changes the name of a circuit and returns the circuit.
+Changes the name of a circuit and returns the circuit.@(lb)
 The returned one is @nbr[eq?] to the original.
 @note{A circuit is represented by a struct with @nbrl[prop:procedure]{procedure-property}.
 Such a struct has two fields, its name and the circuit procedure proper.
@@ -415,11 +391,17 @@ all @racket[gate-expr]s are evaluated.
 as its @racket[gate] has @racket[gate-output]s.
 The values must be @racketlink[trit?]{trits}, of course.
 After all @racket[gate-expr]s have been evaluated,
-the signals are transmitted simultaneously to the @racket[gate-output]s,
-where needed as though clocked simultaneously via @nb{@elemref["D-latch"]{D-latches}}.
+the signals are transmitted simultaneously to the @racket[gate-output]s.
+This means that every @nbr[gate] of a @nbr[make-circuit-maker]-form has the same delay.
+Where needed signals are transmitted to the @nbr[gate-output]s
+as though clocked simultaneously via @nb{@elemref["D-latch"]{D-latches}}.
 More steps are made until all @nbr[gate-output]s are stable.
 @nb{After stability} is obtained, the @racket[output]s are returned as a multiple value.
 The internal state is preserved for the next call to the circuit procedure.
+
+Notice that a @nbr[gate] of the form @nbr[(id_1 id_0)]
+transmits the signal of @nbr[id_0] to @nbr[id_1] with one step of delay.
+Sometimes such additional delay may be necessary.
 
 @ignore{Evaluation of every @nbr[gate-expr] even when its inputs have not been changed,
 may seem inefficient, but @seclink["Elementary gates"]{elementary gates} are fast
@@ -543,7 +525,6 @@ For an example see procedure @nbr[Eq].
 @defproc[#:kind "predicate" (gate? (obj any/c)) boolean?]{
 This predicate holds for all elementary gates described in this section.
 It returns @nbr[#t] if the @nbr[obj] is
-@nbr[Delay],
 @nbr[Not],
 @nbr[And],
 @nbr[Nand],
@@ -554,28 +535,6 @@ It returns @nbr[#t] if the @nbr[obj] is
 @nbr[Implies] or
 @nbr[If].
 For every other @nbr[obj] the predicate returns @nbr[#f].}
-@defproc[#:kind "elementary gate" (Delay (input trit?)) trit?]{
-Can be used for a single step delay.
-Not realy necessary, for a @tt{@italic{gate}} of the form @tt{(a b)}
-does exactly the same as @nbr[(a (Delay b))].
-The timing of switching signals that have circular dependency is very important.
-Gate @nbr[Delay] can help in most cases.
-@(inset (make-truth-table (input) (Delay input) #t))
-Notice that @nbr[(Delay (Delay a))] delays one step only, just like @nbr[(Delay a)].@(lb)
-Delays of more than one step require a separate @nbr[Delay]-@tt{@italic{gate}} for each delay.@(lb)
-The following example shows one step only:
-@Interaction[
-(((make-circuit-maker delay
-   (x) (y)
-   (y (Delay (Delay (Delay x))))))
- 0 #:report #t)]
-The following excample shows three steps
-@Interaction[
-(((make-circuit-maker delay (x) (y)
-  (a (Delay x))
-  (b (Delay a))
-  (y (Delay b))))
- 0 #:report #t)]}
 @defproc[#:kind "elementary gate" (Not (input trit?)) trit?]{
 @(inset (make-truth-table (input) (Not input) #t))}
 @defproc[#:kind "elementary gate" (And (input trit?) ...) trit?]{
