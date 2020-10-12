@@ -216,7 +216,7 @@ but dropping the clock fails:
 The report shows that signal @tt{a} switches in step 1,
 but @tt{b} switches in step 2,
 in the same step as signal @tt{state} switches too but based on the old signal of @tt{b}.
-It is important that signal @tt{b} does not switch earlier than signal @tt{a}.
+It is important that signal @tt{a} does not switch earlier than signal @tt{b}.
 We can hack this problem by delaying signal @tt{a} by one step,
 in the diagram shown as a bold bar:
 @Interaction*[
@@ -229,10 +229,8 @@ in the diagram shown as a bold bar:
    (b (Nand not-clock state))
    (state (Nand a b))
    (state-inverse (Not state)))))] @(reset-Interaction*)
-The @elemref["D-latch"]{first D-latch shown above} is more elegant.
-Section @secref{Circuit procedures} describes the timing of changes of signals.
-Timing considerations are important only in circuits with circular dependencies
-on its internal signals.
+Section @secref{Circuit procedures} describes the timing of changes of signals.@(lb)
+Timing is not important in circuits without circular dependencies.
 
 More examples in section @seclink{Elaborated examples}.
 @(reset-Interaction*)
@@ -246,7 +244,7 @@ More examples in section @seclink{Elaborated examples}.
 #:contracts ((gate-expr (values trit? ...)))]{
 Yields a circuit maker:
 @elemtag{circuit-maker}
-@inset[@defproc[#:link-target? #f
+@inset[@defproc[#:link-target? #t
 (circuit-maker (#:name name symbol?
                 #,(tt @italic{name} @roman{ as given to } (nbr make-circuit-maker)))
                (#:power-up power-up trit? (power-up-signal))) circuit?]{
@@ -259,7 +257,7 @@ Each such instance must have its own internal state
 such as to prevent that they disturb each other's internal states.
 Argument @nbr[power-up] is for the initial value of all internal signals of the circuit made by the
 @elemref["circuit-maker"]{circuit-maker}.
-The initial value of parameter @nbr[power-up-signal] is @nbr[?],
+The initial value of parameter @nbr[(power-up-signal)] is @nbr[?],
 id est @nbrl[?]{indeterminate}.}]
 
 The following restrictions apply to @nbr[make-circuit-maker]:
